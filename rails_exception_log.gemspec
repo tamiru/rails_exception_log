@@ -3,9 +3,13 @@ require_relative 'lib/rails_exception_log/version'
 Gem::Specification.new do |spec|
   spec.name = 'rails_exception_log'
   spec.version = RailsExceptionLog::VERSION
+  spec.summary = 'Modern exception logging gem with Tailwind UI for Rails 7 and 8'
+  spec.description = 'A beautiful exception logging gem that stores Rails exceptions in a database with a modern Tailwind UI dashboard'
   spec.authors = ['Tamiru']
   spec.email = ['tamiru@example.com']
   spec.homepage = 'https://github.com/tamiru/rails_exception_log'
+  spec.license = 'MIT'
+  spec.required_ruby_version = '>= 3.0'
 
   spec.metadata = {
     'bug_tracker_uri' => 'https://github.com/tamiru/rails_exception_log/issues',
