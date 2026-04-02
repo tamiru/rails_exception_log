@@ -1,0 +1,17 @@
+{
+  "name": "rails_exception_log",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hotwired/stimulus": "^3.2.2"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "esbuild": "^0.20.0"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./app/assets/stylesheets/rails_exception_log/application.css -o ./app/assets/builds/application.css",
+    "build:js": "esbuild app/javascript/index.js --bundle --outfile=app/assets/builds/application.js --format=esm --target=es2020"
+  }
+}

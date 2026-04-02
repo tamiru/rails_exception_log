@@ -1,0 +1,214 @@
+<div class="min-h-screen bg-slate-50">
+  <nav class="bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center">
+          <%= link_to railsexceptionlog_exceptions_path, class: "flex items-center" do %>
+            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <span class="ml-2 text-xl font-semibold text-slate-900">Rails Exception Log</span>
+          <% end %>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium <%= exception_status_badge(@exception) %>">
+            <%= @exception.status_label %>
+          </span>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= exception_status_class(@exception) %>">
+            <%= @exception.environment %>
+          </span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Exception Details</h1>
+        <p class="mt-1 text-sm text-slate-500">Full exception information and stack trace</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <% case @exception.status.to_s %>
+        <% when 'open' %>
+          <%= button_to "Mark Resolved", resolve_railsexceptionlog_exception_path(@exception), 
+              method: :post, 
+              class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700" %>
+          <%= button_to "Ignore", ignore_railsexceptionlog_exception_path(@exception), 
+              method: :post, 
+              class: "inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50" %>
+        <% when 'resolved' %>
+          <%= button_to "Reopen", reopen_railsexceptionlog_exception_path(@exception), 
+              method: :post, 
+              class: "inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50" %>
+        <% when 'reopened' %>
+          <%= button_to "Mark Resolved", resolve_railsexceptionlog_exception_path(@exception), 
+              method: :post, 
+              class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700" %>
+        <% when 'ignored' %>
+          <%= button_to "Unignore", reopen_railsexceptionlog_exception_path(@exception), 
+              method: :post, 
+              class: "inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50" %>
+        <% end %>
+        <%= button_to "Delete", railsexceptionlog_exception_path(@exception), 
+              method: :delete, 
+              data: { confirm: "Are you sure?" },
+              class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700" %>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="text-lg font-medium text-slate-900">Exception Information</h2>
+            <div class="flex items-center space-x-2">
+              <span class="text-sm text-slate-500">Occurrences: </span>
+              <span class="text-sm font-bold text-slate-900"><%= @exception.occurrence_count %></span>
+            </div>
+          </div>
+          <div class="p-6">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">Exception Class</dt>
+                <dd class="mt-1 text-sm text-slate-900 font-mono bg-red-50 px-3 py-2 rounded"><%= @exception.exception_class %></dd>
+              </div>
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">Status</dt>
+                <dd class="mt-1 text-sm">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= exception_status_badge(@exception) %>">
+                    <%= @exception.status_label %>
+                  </span>
+                </dd>
+              </div>
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">First Occurred</dt>
+                <dd class="mt-1 text-sm text-slate-900"><%= format_datetime(@exception.created_at) %></dd>
+              </div>
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">Last Occurred</dt>
+                <dd class="mt-1 text-sm text-slate-900"><%= format_datetime(@exception.last_occurred_at) %></dd>
+              </div>
+              <% if @exception.resolved_at %>
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">Resolved At</dt>
+                <dd class="mt-1 text-sm text-slate-900"><%= format_datetime(@exception.resolved_at) %></dd>
+              </div>
+              <% end %>
+              <% if @exception.user_email %>
+              <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-slate-500">Affected User</dt>
+                <dd class="mt-1 text-sm text-slate-900"><%= @exception.user_email %></dd>
+              </div>
+              <% end %>
+              <div class="sm:col-span-2">
+                <dt class="text-sm font-medium text-slate-500">Message</dt>
+                <dd class="mt-1 text-sm text-slate-900 bg-slate-50 px-3 py-2 rounded whitespace-pre-wrap font-mono"><%= @exception.message %></dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-medium text-slate-900">Stack Trace</h2>
+          </div>
+          <div class="p-6">
+            <pre class="text-sm text-slate-800 overflow-x-auto font-mono whitespace-pre-wrap bg-slate-900 text-slate-100 p-4 rounded"><%= @exception.backtrace %></pre>
+          </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="text-lg font-medium text-slate-900">Comments</h2>
+          </div>
+          <div class="p-6">
+            <% if @comments.any? %>
+              <div class="space-y-4 mb-6">
+                <% @comments.each do |comment| %>
+                  <div class="bg-slate-50 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium text-slate-900"><%= comment['author'] %></span>
+                      <span class="text-xs text-slate-500"><%= comment['created_at'] %></span>
+                    </div>
+                    <p class="text-sm text-slate-700"><%= comment['body'] %></p>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+            <%= form_with url: add_comment_railsexceptionlog_exception_path(@exception), method: :post, local: true do |f| %>
+              <div class="flex gap-2">
+                <%= f.text_field :comment, placeholder: "Add a comment...", 
+                    class: "flex-1 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" %>
+                <%= f.submit "Add Comment", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-medium text-slate-900">Request</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <dt class="text-sm font-medium text-slate-500">Method</dt>
+              <dd class="mt-1">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium <%= request_method_class(@exception.request_method) %>">
+                  <%= @exception.request_method %>
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-slate-500">Path</dt>
+              <dd class="mt-1 text-sm text-slate-900 font-mono break-all"><%= @exception.request_path %></dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-slate-500">Controller / Action</dt>
+              <dd class="mt-1 text-sm text-slate-900"><%= @exception.controller_name %>#<%= @exception.action_name %></dd>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-medium text-slate-900">Request Parameters</h2>
+          </div>
+          <div class="p-6">
+            <% if @exception_data.present? %>
+              <pre class="text-xs text-slate-800 overflow-x-auto font-mono whitespace-pre-wrap"><%= JSON.pretty_generate(@exception_data) %></pre>
+            <% else %>
+              <p class="text-sm text-slate-500">No parameters recorded</p>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-medium text-slate-900">Session Data</h2>
+          </div>
+          <div class="p-6">
+            <% if @session_data.present? %>
+              <pre class="text-xs text-slate-800 overflow-x-auto font-mono whitespace-pre-wrap"><%= JSON.pretty_generate(@session_data) %></pre>
+            <% else %>
+              <p class="text-sm text-slate-500">No session data recorded</p>
+            <% end %>
+          </div>
+        </div>
+
+        <% if @headers.present? %>
+          <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-slate-200">
+              <h2 class="text-lg font-medium text-slate-900">Headers</h2>
+            </div>
+            <div class="p-6">
+              <pre class="text-xs text-slate-800 overflow-x-auto font-mono whitespace-pre-wrap"><%= JSON.pretty_generate(@headers) %></pre>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </main>
+</div>
