@@ -59,31 +59,31 @@ module RailsExceptionLog
 
     def destroy
       @exception.destroy
-      redirect_to '/exceptions',
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Exception deleted successfully'
     end
 
     def resolve
       @exception.mark_resolved!
-      redirect_to "/exceptions/#{@exception.id}",
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Exception marked as resolved'
     end
 
     def reopen
       @exception.mark_open!
-      redirect_to "/exceptions/#{@exception.id}",
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Exception reopened'
     end
 
     def ignore
       @exception.update!(status: :ignored)
-      redirect_to "/exceptions/#{@exception.id}",
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Exception ignored'
     end
 
     def add_comment
       @exception.add_comment!(params[:comment], author: current_user_email)
-      redirect_to "/exceptions/#{@exception.id}",
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Comment added'
     end
 
@@ -93,7 +93,7 @@ module RailsExceptionLog
       else
         RailsExceptionLog::LoggedException.delete_all
       end
-      redirect_to '/exceptions',
+      redirect_to railsexceptionlog_exceptions_path,
                   notice: 'Exceptions cleared'
     end
 
