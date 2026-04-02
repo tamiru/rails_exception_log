@@ -1,17 +1,22 @@
-require 'csv'
-
 module RailsExceptionLog
   class LoggedExceptionsController < ApplicationController
     before_action :load_exception, only: %i[show destroy resolve reopen ignore add_comment]
 
     def index
+      page = params[:page].to_i.positive? ? params[:page].to_i : 1
+      per_page = 25
+
       @exceptions = filtered_exceptions
                     .select(:id, :exception_class, :message, :controller_name,
                             :action_name, :request_method, :request_path,
                             :environment, :created_at, :status, :occurrence_count,
                             :last_occurred_at, :resolved_at)
                     .order(last_occurred_at: :desc)
-                    .page(params[:page])
+                    .limit(per_page)
+                    .offset((page - 1) * per_page)
+
+      total_count = filtered_exceptions.count
+      @total_pages = (total_count.to_f / per_page).ceil
 
       @exception_classes = RailsExceptionLog::LoggedException
                            .select(:exception_class)
@@ -54,31 +59,31 @@ module RailsExceptionLog
 
     def destroy
       @exception.destroy
-      redirect_to railsexceptionlog_exceptions_path,
+      redirect_to '/exceptions',
                   notice: 'Exception deleted successfully'
     end
 
     def resolve
       @exception.mark_resolved!
-      redirect_to railsexceptionlog_exception_path(@exception),
+      redirect_to "/exceptions/#{@exception.id}",
                   notice: 'Exception marked as resolved'
     end
 
     def reopen
       @exception.mark_open!
-      redirect_to railsexceptionlog_exception_path(@exception),
+      redirect_to "/exceptions/#{@exception.id}",
                   notice: 'Exception reopened'
     end
 
     def ignore
       @exception.update!(status: :ignored)
-      redirect_to railsexceptionlog_exception_path(@exception),
+      redirect_to "/exceptions/#{@exception.id}",
                   notice: 'Exception ignored'
     end
 
     def add_comment
       @exception.add_comment!(params[:comment], author: current_user_email)
-      redirect_to railsexceptionlog_exception_path(@exception),
+      redirect_to "/exceptions/#{@exception.id}",
                   notice: 'Comment added'
     end
 
@@ -88,7 +93,7 @@ module RailsExceptionLog
       else
         RailsExceptionLog::LoggedException.delete_all
       end
-      redirect_to railsexceptionlog_exceptions_path,
+      redirect_to '/exceptions',
                   notice: 'Exceptions cleared'
     end
 
@@ -129,6 +134,8 @@ module RailsExceptionLog
     end
 
     def export_to_csv(exceptions)
+      require 'csv'
+
       CSV.generate(headers: true) do |csv|
         csv << ['ID', 'Exception Class', 'Message', 'Controller', 'Action', 'Path', 'Method', 'Environment', 'Status',
                 'Occurrences', 'Created At']
@@ -151,7 +158,6 @@ module RailsExceptionLog
     end
 
     def current_user_email
-      # Override this method to return the current user's email
       'anonymous'
     end
   end

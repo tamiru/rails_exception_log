@@ -48,5 +48,11 @@ module RailsExceptionLog
       else 'bg-slate-100 text-slate-800'
       end
     end
+
+    def truncate_text(text, length: 50)
+      return '-' unless text
+
+      text.length > length ? "#{text[0...length]}..." : text
+    end
   end
 end

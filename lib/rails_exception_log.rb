@@ -1,5 +1,6 @@
 require 'rails_exception_log/engine'
 require 'rails_exception_log/version'
+require 'rails_exception_log/exception_loggable'
 
 module RailsExceptionLog
   mattr_accessor :application_name, default: 'Rails Exception Log'
@@ -20,4 +21,8 @@ module RailsExceptionLog
   def self.configure
     yield self
   end
+end
+
+ActiveSupport.on_load(:action_controller_base) do
+  include RailsExceptionLog::ExceptionLoggable
 end
