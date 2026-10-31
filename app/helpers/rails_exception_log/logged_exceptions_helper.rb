@@ -183,27 +183,6 @@ module RailsExceptionLog
       data
     end
 
-    # ─── Source Code Reading ──────────────────────────────────────
-
-    # Read source code snippet around a file:line
-    def read_source_snippet(file_path, line_number, context: 5)
-      super(file_path, line_number, context_lines: context)
-    end
-
-    # Get git blame for a file:line range
-    def git_blame_for_line(file_path, line_number, **_options)
-      super(file_path, line_number)
-    end
-
-    # Parse backtrace line into file path and line number
-    def parse_backtrace_line(line)
-      return nil unless line.present?
-      # Match formats: "file:line" or "file:line:in `method'"
-      if line =~ /^(.+?):(\d+)(?::in `(.+?)')?$/
-        { file: $1, line: $2.to_i, method: $3 }
-      else
-        nil
-      end
-    end
+    # Source reading, git blame, and backtrace parsing live in SourceCodeHelper.
   end
 end

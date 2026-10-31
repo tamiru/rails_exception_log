@@ -1,10 +1,16 @@
-RailsExceptionLog has been installed.
+RailsExceptionLog is installed (or updated).
 
 Next steps:
 
-1. Review `config/initializers/rails_exception_log.rb` and configure `auth_block`.
-2. Run `bin/rails db:migrate`.
-3. Visit `/rails_exception_log` in the host application.
+  1. bin/rails db:migrate
+  2. Set config.auth_block in config/initializers/rails_exception_log.rb
+     (the dashboard denies everyone until you do).
+  3. bin/rails rails_exception_log:doctor   # checks the setup, tells you what to fix
+  4. bin/rails rails_exception_log:test     # records a sample exception
+  5. Restart the app server and open /rails_exception_log
 
-The dashboard denies access until authentication is configured.
-The generator captures `StandardError` application failures and deliberately leaves fatal process and VM exceptions to Rails and Ruby.
+Exceptions from requests, jobs, rake tasks, and rails runner are recorded
+automatically. Nothing needs to be added to your controllers.
+
+To update later: bundle update rails_exception_log, then run this generator
+again (it only adds what is missing) and repeat steps 1, 3, and 5.

@@ -5,19 +5,10 @@ require "pathname"
 
 module RailsExceptionLog
   module SourceCodeHelper
-    # Parse a backtrace line into components
-    # Returns { file: String, line: Integer, method: String, gem: String } or nil
+    # Parse a backtrace line into { file:, line:, method:, app: } or nil.
+    # See LoggedException.parse_backtrace_line.
     def parse_backtrace_line(line)
-      return nil if line.blank?
-
-      # Match standard Ruby backtrace: "path/to/file.rb:123:in `method_name'"
-      if line =~ %r{\A(.+?):(\d+)(?::in `(.+?)')?\z}
-        {
-          file: $1,
-          line: $2.to_i,
-          method: $3
-        }
-      end
+      RailsExceptionLog::LoggedException.parse_backtrace_line(line)
     end
 
     # Read source code snippet around a specific line
@@ -130,7 +121,7 @@ module RailsExceptionLog
       return nil if file_path.blank?
 
       root = Pathname.new(Rails.root).realpath
-      candidate = Pathname.new(file_path.to_s)
+      candidate = Pathname.new(file_path.to_s.delete_prefix(RailsExceptionLog::LoggedException::ROOT_MARKER))
       candidate = root.join(candidate) unless candidate.absolute?
       resolved = candidate.realpath
       relative = resolved.relative_path_from(root).to_s

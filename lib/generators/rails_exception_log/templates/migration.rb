@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class CreateRailsExceptionLogTables < ActiveRecord::Migration[<%= "[#{ActiveRecord::Migration.current_version}]" %>]
+class CreateRailsExceptionLogTables < ActiveRecord::Migration<%= "[#{ActiveRecord::Migration.current_version}]" %>
   def change
     # ─── rails_exception_log_exceptions ──────────────────────────────────────
     create_table :rails_exception_log_exceptions do |t|

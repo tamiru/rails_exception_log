@@ -12,8 +12,12 @@
 
       <div class="flex items-center gap-2 flex-wrap">
         <span class="rn-badge rn-badge-<%= severity_for(@exception) %>"><%= @exception.exception_class %></span>
-        <span class="rn-mono text-xs" style="color: var(--rn-text-secondary)"><%= @exception.controller_name %>#<%= @exception.action_name %></span>
+        <span class="rn-mono text-xs" style="color: var(--rn-text-secondary)"><%= [@exception.controller_name, @exception.action_name].compact_blank.join("#") %></span>
       </div>
+
+      <% if @exception.location_label %>
+        <p class="rn-mono text-xs mt-1" style="color: var(--rn-primary)" title="Where it happened"><%= @exception.location_label %></p>
+      <% end %>
 
       <p class="mt-1.5 text-xs" style="color: var(--rn-text-muted)">
         <time datetime="<%= @exception.created_at.iso8601 %>"><%= @exception.created_at.strftime("%B %d, %Y at %I:%M:%S %p") %></time>
@@ -103,6 +107,60 @@
 
     <%# ─── Tab: Overview ────────────────────────────────────── %>
     <div data-rails_exception_log-detail-target="tabContent" data-rn-tab-content="overview">
+
+      <%# Where it happened: first frame in the application's own code %>
+      <% location = @exception.location %>
+      <% if location %>
+        <div class="rn-detail-section rn-location">
+          <div class="rn-detail-section-header">
+            <h3>Where it happened</h3>
+            <button type="button" class="rn-copy-btn" data-action="click->rails_exception_log-detail#copyMessage"
+              data-rails_exception_log-detail-message-value="<%= @exception.location_label %>"
+              title="Copy file and line">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>
+              Copy
+            </button>
+          </div>
+          <p class="rn-location-path rn-mono">
+            <span class="rn-location-file"><%= location[:file] %></span><span class="rn-location-line">:<%= location[:line] %></span>
+            <% if @exception.location_method %>
+              <span class="rn-location-method">in <%= @exception.location_method %></span>
+            <% end %>
+          </p>
+          <% unless location[:app] %>
+            <p class="text-xs" style="color: var(--rn-text-muted)">No application frame in the backtrace; showing the first frame.</p>
+          <% end %>
+
+          <% if location[:app] && RailsExceptionLog.configuration.source_code_viewing %>
+            <% location_source = read_source_snippet(location[:file], location[:line], context_lines: 4) %>
+            <% if location_source %>
+              <% location_blame = git_blame_for_line(location[:file], location[:line]) %>
+              <div class="rn-source-panel">
+                <% if location_blame %>
+                  <div class="rn-blame-header">
+                    <span class="blame-author"><%= location_blame[:author] || "unknown" %></span>
+                    <span>·</span>
+                    <span><%= location_blame[:date] %></span>
+                    <span>·</span>
+                    <span><%= location_blame[:message] %></span>
+                    <span class="blame-sha"><%= location_blame[:sha] %></span>
+                  </div>
+                <% end %>
+                <div class="rn-source-code" style="background: var(--rn-bg-primary)">
+                  <% location_source[:lines].each do |src_line| %>
+                    <div class="source-line<%= " is-error" if src_line[:is_error] %>">
+                      <span class="line-number"><%= src_line[:number] %></span>
+                      <span class="line-content"><%= src_line[:content] %></span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% else %>
+              <p class="text-xs" style="color: var(--rn-text-muted)">Source is not available on this server (the file may have changed or been deployed elsewhere).</p>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
 
       <%# Message %>
       <div class="rn-detail-section">
@@ -232,7 +290,7 @@
             <% display_limit = RailsExceptionLog.configuration.backtrace_limit %>
             <% lines.each_with_index do |line, idx| %>
               <% parsed = parse_backtrace_line(line) %>
-              <% is_app_code = parsed && parsed[:file]&.start_with?(Rails.root.to_s) %>
+              <% is_app_code = parsed && parsed[:app] %>
               <% is_top_frame = idx < display_limit %>
 
               <div class="flex items-start gap-2 py-0.5 px-2 rounded text-xs font-mono
@@ -249,13 +307,13 @@
                 <% if parsed %>
                   <span class="flex-1 min-w-0">
                     <% if is_app_code %>
-                      <span style="color: var(--rn-primary); font-weight: 500"><%= parsed[:file].sub(Rails.root.to_s + '/', '') %></span>
+                      <span style="color: var(--rn-primary); font-weight: 500"><%= parsed[:file] %></span>
                     <% else %>
-                      <span><%= line %></span>
+                      <span><%= parsed[:file] %></span>
                     <% end %>
                     <span style="color: var(--rn-text-muted)">:<%= parsed[:line] %></span>
                     <% if parsed[:method] %>
-                      <span style="color: var(--rn-text-muted)"> in `<%= parsed[:method] %>'</span>
+                      <span style="color: var(--rn-text-muted)"> in <%= parsed[:method] %></span>
                     <% end %>
                   </span>
 

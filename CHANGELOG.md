@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-31
+
+### Added
+- **Where it happened** — Each exception shows the file, line, and method in
+  the application's own code: at the top of the detail page (with the
+  surrounding source and git blame) and under each row in the list. When a
+  core method such as `Hash#fetch` raised, the calling app method is named.
+- **`bin/rails rails_exception_log:doctor`** — Checks the database tables,
+  route, dashboard access, capture hooks, precompiled assets, and leftover
+  rails_nexus references, and prints the fix for each problem. Exits non-zero
+  on failure so it can run in deploy scripts.
+- **`bin/rails rails_exception_log:test`** — Records a sample exception and
+  prints its dashboard URL.
+- **One command to install, update, or convert** — The install generator is
+  safe to re-run: it skips the migration, initializer, and route when present.
+  In a rails_nexus project it generates a table-rename migration (keeping all
+  data), converts the initializer and route, updates `RailsNexus` references
+  and `/rails_nexus` links, and removes the old gem from the Gemfile.
+
+### Fixed
+- Backtraces were never recognized as application code, so frames were not
+  highlighted and no inline source was shown: stored paths use a
+  `[RAILS_ROOT]` placeholder the view did not understand, and Ruby 3.4+
+  backtrace lines (`in 'Klass#method'`) did not parse at all.
+- Fresh installs could not migrate: the generated migration declared
+  `ActiveRecord::Migration[[8.1]]`.
+- `bin/rails generate rails_exception_log:install` crashed in apps that had not
+  loaded Rake (`uninitialized constant Rake`), and rake tasks were loaded twice
+  where Rake was loaded.
+- The install generator added `rescue_from ... :log_exception_handler` without
+  the module that defines it; it no longer edits controllers.
+- `rails_exception_log:customize` copied outdated views; it now copies the
+  engine's current views.
+- Non-application backtrace frames showed the line number twice.
+
 ## [2.1.0] - 2026-10-31
 
 ### Added

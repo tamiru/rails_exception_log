@@ -18,6 +18,7 @@ require "rails_exception_log/middleware"
 require "rails_exception_log/active_job_capture"
 require "rails_exception_log/sidekiq_capture"
 require "rails_exception_log/rake_capture"
+require "rails_exception_log/doctor"
 require "rails_exception_log/engine"
 
 module RailsExceptionLog

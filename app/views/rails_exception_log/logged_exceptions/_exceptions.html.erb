@@ -109,6 +109,9 @@
                 <div class="rn-msg" title="<%= exception.message %>">
                   <%= exception.message.presence || "No message" %>
                 </div>
+                <% if (location_label = exception.location_label) %>
+                  <span class="rn-row-location rn-mono" title="<%= location_label %>"><%= location_label %></span>
+                <% end %>
               </td>
 
               <%# Occurrence count %>

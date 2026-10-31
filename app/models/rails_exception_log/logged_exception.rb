@@ -252,6 +252,66 @@ module RailsExceptionLog
       "#{self.exception_class} in #{self.controller_action}"
     end
 
+    # ─── Backtrace frames ──────────────────────────────────────────
+    # Matches "file:12", "file:12:in `meth'" (Ruby <= 3.3), and
+    # "file:12:in 'Klass#meth'" (Ruby 3.4+).
+    BACKTRACE_LINE = /\A(?<file>.+?):(?<line>\d+)(?::in [`'](?<method>.*)')?\z/
+    ROOT_MARKER = "[RAILS_ROOT]/"
+    NON_APP_PREFIXES = %w[vendor/ bin/ node_modules/].freeze
+
+    # Parses one backtrace line into
+    #   { file:, line:, method:, app: }
+    # where file is relative to Rails.root for the application's own code
+    # (stored backtraces use the "[RAILS_ROOT]/" placeholder) and app is true
+    # for those frames. Returns nil for lines that are not file:line frames.
+    def self.parse_backtrace_line(line)
+      match = BACKTRACE_LINE.match(line.to_s.strip)
+      return nil unless match
+
+      file = match[:file]
+      root = "#{Rails.root}/"
+      relative = if file.start_with?(ROOT_MARKER)
+        file.delete_prefix(ROOT_MARKER)
+      elsif file.start_with?(root)
+        file.delete_prefix(root)
+      end
+      app = relative.present? && NON_APP_PREFIXES.none? { |prefix| relative.start_with?(prefix) }
+
+      { file: relative || file, line: match[:line].to_i, method: match[:method].presence, app: app }
+    end
+
+    def backtrace_frames
+      @backtrace_frames ||= backtrace.to_s.split("\n").filter_map { |line| self.class.parse_backtrace_line(line) }
+    end
+
+    # Where the exception was raised in the application's own code: the first
+    # app frame of the backtrace, or the first frame when none is app code.
+    def location
+      frames = backtrace_frames
+      index = frames.index { |frame| frame[:app] }
+      return frames.first unless index
+
+      # Ruby 3.4+ reports core methods (Hash#fetch, Integer#/) at the caller's
+      # file:line; prefer the caller's frame so the method is the app's own.
+      index += 1 while frames[index + 1] && frames[index + 1].values_at(:file, :line) == frames[index].values_at(:file, :line)
+      frames[index]
+    end
+
+    # "app/models/order.rb:42", or nil without a backtrace.
+    def location_label
+      frame = location
+      "#{frame[:file]}:#{frame[:line]}" if frame
+    end
+
+    # Method name for display; compiled view template names are not useful.
+    def location_method
+      frame = location
+      return unless frame && frame[:method]
+      return if frame[:file].to_s.match?(/\.(erb|haml|slim|builder|jbuilder)\z/)
+
+      frame[:method].delete_prefix("block in ").delete_prefix("rescue in ")
+    end
+
     # Generate fingerprint for grouping similar exceptions
     def self.generate_fingerprint(exception_class, controller_name, action_name, message: nil, backtrace: nil)
       require "digest"

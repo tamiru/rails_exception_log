@@ -34,17 +34,17 @@ module RailsExceptionLog
                  "app/views/layouts/rails_exception_log/application.html.erb"
       end
 
+      # Copies the engine's own views (not separate templates), so customized
+      # copies start from exactly what the installed version renders.
+      CUSTOMIZABLE_VIEWS = %w[index.html.erb _exceptions.html.erb _show.html.erb].freeze
+
       def generate_views
         return unless generate_all? || options[:views_only]
 
-        template "views/rails_exception_log/logged_exceptions/index.html.erb",
-                 "app/views/rails_exception_log/logged_exceptions/index.html.erb"
-
-        template "views/rails_exception_log/logged_exceptions/_exceptions.html.erb",
-                 "app/views/rails_exception_log/logged_exceptions/_exceptions.html.erb"
-
-        template "views/rails_exception_log/logged_exceptions/_show.html.erb",
-                 "app/views/rails_exception_log/logged_exceptions/_show.html.erb"
+        engine_views = RailsExceptionLog::Engine.root.join("app/views/rails_exception_log/logged_exceptions")
+        CUSTOMIZABLE_VIEWS.each do |view|
+          copy_file engine_views.join(view).to_s, "app/views/rails_exception_log/logged_exceptions/#{view}"
+        end
       end
 
       def generate_stimulus

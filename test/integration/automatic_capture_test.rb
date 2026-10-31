@@ -26,6 +26,30 @@ class AutomaticCaptureTest < ActionDispatch::IntegrationTest
     assert_includes record.request, "/failures/boom"
   end
 
+  test "the dashboard shows the file and line where the exception was raised" do
+    assert_raises(ArgumentError) { get "/failures/boom" }
+    record = RailsExceptionLog::LoggedException.order(:id).last
+    raise_line = File.readlines(Rails.root.join("app/controllers/failures_controller.rb"))
+                     .index { |line| line.include?('raise ArgumentError, "dummy failure"') } + 1
+
+    assert_equal "app/controllers/failures_controller.rb:#{raise_line}", record.location_label
+
+    original_auth = @config.auth_block
+    @config.auth_block = ->(_controller) { true }
+    get "/rails_exception_log/logged_exceptions/#{record.id}"
+
+    assert_response :success
+    assert_select ".rn-location .rn-location-file", text: "app/controllers/failures_controller.rb"
+    assert_select ".rn-location .rn-location-line", text: ":#{raise_line}"
+    assert_select ".rn-location .source-line.is-error .line-content", text: /raise ArgumentError, "dummy failure"/
+    assert_select ".rn-bt-app", minimum: 1
+
+    get "/rails_exception_log/logged_exceptions"
+    assert_select ".rn-row-location", text: "app/controllers/failures_controller.rb:#{raise_line}"
+  ensure
+    @config.auth_block = original_auth
+  end
+
   test "records an exception once when both the concern and the middleware see it" do
     assert_difference -> { RailsExceptionLog::LoggedException.count }, 1 do
       assert_raises(ArgumentError) { get "/concern_failures" }

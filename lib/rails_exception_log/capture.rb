@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 module RailsExceptionLog
+  # Raised by `bin/rails rails_exception_log:test` to record a sample exception.
+  class TestException < StandardError; end
+
   # Single entry point for recording an exception. The controller concern, the
   # Rack middleware, the ActiveJob/Sidekiq/rake hooks, and the Rails.error
   # subscriber all go through here, so filtering, de-duplication, and the
@@ -11,6 +14,7 @@ module RailsExceptionLog
     Context = Struct.new(:controller_path, :action_name, :request, :current_user, keyword_init: true)
 
     SKIP_KEY = :rails_exception_log_skip_capture
+    SYNC_KEY = :rails_exception_log_sync_capture
 
     @captured = ObjectSpace::WeakMap.new
     @mutex = Mutex.new
@@ -37,7 +41,7 @@ module RailsExceptionLog
         attributes = RailsExceptionLog::LoggedException.capture_attributes(controller, exception, data)
         return unless attributes
 
-        if RailsExceptionLog.configuration.async_capture?
+        if RailsExceptionLog.configuration.async_capture? && !Thread.current[SYNC_KEY]
           RailsExceptionLog::AsyncWriter.instance.enqueue(attributes)
         else
           without_capture { RailsExceptionLog::LoggedException.persist_capture(attributes) }
@@ -69,6 +73,16 @@ module RailsExceptionLog
 
       def captured?(exception)
         @mutex.synchronize { @captured.key?(exception) }
+      end
+
+      # Writes synchronously on the current thread for the duration of the
+      # block, so the caller gets the saved record back.
+      def without_async
+        previous = Thread.current[SYNC_KEY]
+        Thread.current[SYNC_KEY] = true
+        yield
+      ensure
+        Thread.current[SYNC_KEY] = previous
       end
 
       # Suppresses capture on the current thread, so errors raised while

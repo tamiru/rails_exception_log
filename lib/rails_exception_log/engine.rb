@@ -82,11 +82,7 @@ module RailsExceptionLog
       require "rails_exception_log/storm_protection"
     end
 
-    # ─── Rake tasks ──────────────────────────────────────────────
-
-    initializer "rails_exception_log.rake_tasks" do
-      load "tasks/rails_exception_log.rake" if Rake.respond_to?(:application)
-    end
+    # Rake tasks in lib/tasks are loaded by Rails::Engine automatically.
 
     # ─── Hook into after_create for notifications ─────────────────
 

@@ -14,6 +14,7 @@ resolve them. No external service required.
 ### 🚨 Exception Capture
 - **Automatic Capture** — Requests, ActiveJob, Sidekiq, rake tasks, and `rails runner`, with no code changes
 - **Non-blocking** — Records are written on a background thread with a bounded queue
+- **Where It Happened** — The file, line, and method in your code, with the surrounding source and git blame
 - **Exception Dashboard** — Dark/light theme, keyboard shortcuts, tabbed detail view
 - **Cause Chains** — Track root cause through chained exceptions
 - **Breadcrumbs** — Activity trail leading up to each error
@@ -55,28 +56,65 @@ resolve them. No external service required.
 
 ## Installation
 
-Add RailsExceptionLog to your application:
+### First time (5 minutes)
 
 ```ruby
 # Gemfile
 gem "rails_exception_log"
 ```
 
-Run the install generator:
-
 ```bash
 bundle install
-bin/rails generate rails_exception_log:install
+bin/rails generate rails_exception_log:install   # migration, initializer, route
 bin/rails db:migrate
 ```
 
-This will:
-1. Copy the database migration with proper indexes.
-2. Create a configuration initializer at `config/initializers/rails_exception_log.rb`.
-3. Mount the engine in your routes.
-4. Add `rescue_from StandardError, with: :log_exception_handler` to `ApplicationController` (optional: the middleware already records request errors).
+Then open `config/initializers/rails_exception_log.rb` and say who may see the
+dashboard (it denies everyone until you do):
 
-The dashboard is now available at `/rails_exception_log`.
+```ruby
+config.auth_block = ->(controller) { controller.current_user&.admin? }
+```
+
+Check the setup and record a sample exception:
+
+```bash
+bin/rails rails_exception_log:doctor   # ✓/✗ for each part, with the fix for anything wrong
+bin/rails rails_exception_log:test     # records a test exception and prints its URL
+```
+
+Restart the app server and open `/rails_exception_log`. From now on exceptions
+from requests, jobs, rake tasks, and `rails runner` are recorded automatically;
+nothing needs to be added to your controllers.
+
+### Updating
+
+The install generator is safe to run again: it only adds what is missing and
+never overwrites your initializer.
+
+```bash
+bundle update rails_exception_log
+bin/rails generate rails_exception_log:install
+bin/rails db:migrate
+bin/rails rails_exception_log:doctor
+```
+
+Restart the app server afterwards. In production, `assets:precompile` runs as
+part of your deploy; if you precompile in development, run it again (the
+doctor warns when the precompiled assets are out of date).
+
+### Moving from rails_nexus
+
+Replace `gem "rails_nexus"` with `gem "rails_exception_log"`, run `bundle install`,
+then run the same install generator. It detects the rails_nexus setup and:
+
+1. Generates a migration that renames the `rails_nexus_*` tables, keeping every recorded exception.
+2. Converts `config/initializers/rails_nexus.rb` to `config/initializers/rails_exception_log.rb`.
+3. Replaces the `RailsNexus::Engine` mount with `RailsExceptionLog::Engine` at `/rails_exception_log`.
+4. Updates `RailsNexus::` / `RailsNexus.` references and `"/rails_nexus"` links in `app/`, `config/`, and `lib/`.
+5. Removes `gem "rails_nexus"` from the Gemfile (kept if `backup_nexus` still needs it).
+
+Then run `bin/rails db:migrate` and `bin/rails rails_exception_log:doctor`.
 
 ### Optional UI customization
 
@@ -354,6 +392,8 @@ config.retention_days = 90  # Auto-delete after 90 days
 Rake tasks:
 
 ```bash
+rake rails_exception_log:doctor           # Check the setup and show how to fix problems
+rake rails_exception_log:test             # Record a sample exception
 rake rails_exception_log:cleanup          # Delete exceptions older than retention_days
 rake rails_exception_log:stats            # Show exception statistics
 rake rails_exception_log:tail             # Tail JSON logs in real-time
@@ -412,8 +452,7 @@ The dashboard denies every request unless `auth_block` returns a truthy value. W
 
 | Generator | Description |
 |---|---|
-| `rails generate rails_exception_log:install` | Full setup (migration, initializer, routes) |
-| `rails generate rails_exception_log:install --modern` | Install + generate all customizations |
+| `rails generate rails_exception_log:install` | Install, update, or convert from rails_nexus (safe to re-run) |
 | `rails generate rails_exception_log:customize` | Generate customizable views, layout, and JS |
 | `rails generate rails_exception_log:customize --layout-only` | Only the layout |
 | `rails generate rails_exception_log:customize --views-only` | Only the views |
@@ -460,8 +499,8 @@ To release a version, update `lib/rails_exception_log/version.rb` and `CHANGELOG
 merge the changes to `main`, then push a matching tag:
 
 ```bash
-git tag v2.1.0
-git push origin v2.1.0
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
 The workflow verifies that the tag matches the gem version, runs the tests,

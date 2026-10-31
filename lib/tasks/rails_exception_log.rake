@@ -1,6 +1,35 @@
 # frozen_string_literal: true
 
 namespace :rails_exception_log do
+  desc "Check the RailsExceptionLog setup and show how to fix problems"
+  task doctor: :environment do
+    require "rails_exception_log/doctor"
+    exit(1) unless RailsExceptionLog::Doctor.new.report
+  end
+
+  desc "Record a sample exception so you can see it in the dashboard"
+  task test: :environment do
+    error = begin
+      raise RailsExceptionLog::TestException, "Test exception from bin/rails rails_exception_log:test"
+    rescue RailsExceptionLog::TestException => e
+      e
+    end
+
+    record = RailsExceptionLog::Capture.without_async do
+      RailsExceptionLog::Capture.call(error, source: "rails_exception_log:test", action: "test", data: { sample: true })
+    end
+
+    if record.respond_to?(:id)
+      require "rails_exception_log/doctor"
+      path = RailsExceptionLog::Doctor.new.dashboard_path || "/rails_exception_log"
+      puts "✓ Recorded #{record.exception_class} ##{record.id}"
+      puts "  Open #{path}/logged_exceptions/#{record.id}"
+    else
+      puts "✗ Nothing was recorded. Run bin/rails rails_exception_log:doctor to see why."
+      exit(1)
+    end
+  end
+
   desc "Delete exceptions older than the configured retention period"
   task cleanup: :environment do
     require "rails_exception_log/cleanup"

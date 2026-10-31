@@ -2338,3 +2338,10 @@ body > div.min-h-full > div:last-child {
   overflow: visible;
 }
 body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
+
+/* ─── Exception location (file:line) ─────────────────────────── */
+.rn-location-path { margin: 0 0 0.5rem; font-size: 0.875rem; overflow-wrap: anywhere; }
+.rn-location-file { color: var(--rn-primary); font-weight: 600; }
+.rn-location-line { color: var(--rn-primary); }
+.rn-location-method { margin-left: 0.375rem; color: var(--rn-text-muted); }
+.rn-row-location { display: block; margin-top: 0.125rem; font-size: 0.75rem; color: var(--rn-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40rem; }
