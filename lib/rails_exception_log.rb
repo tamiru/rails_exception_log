@@ -11,6 +11,13 @@ require "rails_exception_log/version"
 require "rails_exception_log/configuration"
 require "rails_exception_log/logger"
 require "rails_exception_log/database_adapter"
+require "rails_exception_log/capture"
+require "rails_exception_log/async_writer"
+require "rails_exception_log/error_subscriber"
+require "rails_exception_log/middleware"
+require "rails_exception_log/active_job_capture"
+require "rails_exception_log/sidekiq_capture"
+require "rails_exception_log/rake_capture"
 require "rails_exception_log/engine"
 
 module RailsExceptionLog
@@ -41,6 +48,16 @@ module RailsExceptionLog
     # Convenience logger accessor
     def logger
       RailsExceptionLog::Logger
+    end
+
+    # Records an exception you rescued yourself, e.g.
+    #
+    #   rescue PaymentGateway::Timeout => e
+    #     RailsExceptionLog.capture(e, data: { order_id: order.id })
+    #
+    # Returns the record (synchronous writes), true (queued), or nil (skipped).
+    def capture(exception, data: {}, source: "manual", action: nil)
+      Capture.call(exception, data: data, source: source, action: action)
     end
 
     def parameter_filter
@@ -129,30 +146,10 @@ module RailsExceptionLog
       return unless exception.is_a?(StandardError)
 
       # Support both the legacy class_attribute and the new configuration DSL
-      deliverer = if self.class.exception_data
-                    self.class.exception_data
-                  elsif RailsExceptionLog.configuration.exception_data
-                    RailsExceptionLog.configuration.exception_data
-                  end
+      deliverer = self.class.exception_data || RailsExceptionLog.configuration.exception_data
+      data = Capture.resolve_exception_data(self, deliverer)
 
-      data = begin
-        case deliverer
-        when nil    then {}
-        when Symbol then send(deliverer)
-        when Proc   then deliverer.call(self)
-        else deliverer.respond_to?(:call) ? deliverer.call(self) : {}
-        end
-      rescue StandardError => data_error
-        { exception_data_error: data_error.class.name }
-      end
-
-      data = RailsExceptionLog.filter_sensitive_data(data || {})
-
-      # Log with structured logger
-      RailsExceptionLog::Logger.error(exception, controller: self, extra: data)
-
-      # Create the record
-      LoggedException.create_from_exception(self, exception, data)
+      Capture.call(exception, controller: self, data: data || {})
     end
   end
 end

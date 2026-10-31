@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-31
+
+### Added
+- **Automatic capture everywhere** — Exceptions are recorded without any
+  controller or job changes:
+  - Rack middleware for every request, including engine and API controllers
+    that never include `ExceptionLoggable`.
+  - ActiveJob failures (final failures only; attempts that `retry_on` will
+    retry are skipped), with job class, ID, queue, attempts, and arguments.
+  - A Sidekiq error handler for plain Sidekiq jobs, registered automatically.
+  - Rake tasks that load the app.
+  - A `Rails.error` subscriber, covering `rails runner` and
+    `Rails.error.record`/`report`.
+- **Background writes** — Records are written on a background thread with a
+  bounded queue (`async_queue_size`), restarted after fork and drained at exit.
+  Synchronous in the test environment.
+- **`RailsExceptionLog.capture(exception, data: {})`** for exceptions you rescue
+  yourself.
+- Settings: `capture_enabled`, `capture_requests`, `capture_jobs`,
+  `capture_sidekiq`, `capture_rake_tasks`, `capture_rails_errors`,
+  `capture_handled_errors`, `ignored_exceptions`, `async_capture`,
+  `async_queue_size`.
+
+### Changed
+- An exception seen by several hooks (for example the controller concern and
+  the middleware) is recorded once.
+- 404s and malformed requests (`ActiveRecord::RecordNotFound`,
+  `ActionController::RoutingError`, `ActionController::BadRequest`, and similar)
+  are skipped by default; edit `ignored_exceptions` to record them.
+- Webhook and Telegram notifications are sent from the background writer
+  instead of the failing request.
+- Development dependencies updated to Rails 8.1.4.
+
 ## [2.0.0] - 2026-10-31
 
 A rewrite based on the exception-logging core of `rails_nexus` 2.1.5. This is

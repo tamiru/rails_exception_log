@@ -38,7 +38,17 @@ module RailsExceptionLog
     end
 
     class << self
+      # Records an exception synchronously and returns the saved record.
       def create_from_exception(controller, exception, data)
+        attributes = capture_attributes(controller, exception, data)
+        persist_capture(attributes) if attributes
+      end
+
+      # Collects everything that has to be read while the request, job, or
+      # thread that raised is still alive (request, current user, breadcrumbs,
+      # system health) and returns plain column values that can be written
+      # later by persist_capture. Returns nil when storm protection sheds it.
+      def capture_attributes(controller, exception, data)
         # Storm protection: check if we should capture this error
         if defined?(RailsExceptionLog::StormProtection) && RailsExceptionLog::StormProtection.enabled?
           unless RailsExceptionLog::StormProtection.allow_capture?
@@ -78,9 +88,6 @@ module RailsExceptionLog
           backtrace: exception.backtrace
         )
 
-        # Check if this fingerprint already exists (occurrence counting)
-        existing = where(fingerprint: fingerprint).order(created_at: :desc).first
-
         attrs = {
           exception_class: exception.class.name,
           controller_name: controller_name,
@@ -102,22 +109,35 @@ module RailsExceptionLog
           breadcrumbs: breadcrumbs_data.presence,
           system_health: capture_system_health,
           local_variables: data.presence,
-          instance_variables: capture_exception_variables(exception).presence,
-          occurrence_count: existing ? existing.occurrence_count + 1 : 1
+          instance_variables: capture_exception_variables(exception).presence
         }
 
-        if existing
-          existing.update!(attrs.except(:fingerprint, :occurrence_count).merge(
-            occurrence_count: existing.occurrence_count + 1,
-            created_at: Time.current
+        # Run the attribute writers now (request= also fills environment) so
+        # no live request object is kept around for a deferred write.
+        record = new(attrs)
+        keys = attrs.keys.map(&:to_s)
+        keys << "environment" if record.will_save_change_to_environment?
+        record.attributes.slice(*keys).merge("captured_at" => Time.current)
+      end
+
+      # Saves attributes from capture_attributes, folding repeats of the same
+      # fingerprint into the latest record's occurrence count.
+      def persist_capture(attributes)
+        attributes = attributes.stringify_keys
+        captured_at = attributes.delete("captured_at") || Time.current
+        existing = where(fingerprint: attributes["fingerprint"]).order(created_at: :desc).first
+
+        record = if existing
+          existing.update!(attributes.except("fingerprint").merge(
+            "occurrence_count" => existing.occurrence_count.to_i + 1,
+            "created_at" => captured_at
           ))
-          RailsExceptionLog::StormProtection.record_captured if defined?(RailsExceptionLog::StormProtection)
           existing
         else
-          record = create!(attrs)
-          RailsExceptionLog::StormProtection.record_captured if defined?(RailsExceptionLog::StormProtection)
-          record
+          create!(attributes.merge("occurrence_count" => 1, "created_at" => captured_at))
         end
+        RailsExceptionLog::StormProtection.record_captured if defined?(RailsExceptionLog::StormProtection)
+        record
       end
 
       def host_name

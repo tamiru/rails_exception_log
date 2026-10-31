@@ -2,6 +2,17 @@
 
 module RailsExceptionLog
   class Configuration
+    # Client errors (404s and malformed requests) that are not worth recording.
+    DEFAULT_IGNORED_EXCEPTIONS = %w[
+      ActionController::RoutingError
+      AbstractController::ActionNotFound
+      ActionController::UnknownFormat
+      ActionController::BadRequest
+      ActionController::InvalidAuthenticityToken
+      ActionDispatch::Http::MimeNegotiation::InvalidType
+      ActiveRecord::RecordNotFound
+    ].freeze
+
     # ─── General ───────────────────────────────────────────────
 
     # Dashboard title shown in the header. Set to nil to use "RailsExceptionLog".
@@ -27,6 +38,44 @@ module RailsExceptionLog
     # Example:
     #   config.exception_data = ->(controller) { { user_id: controller.current_user&.id } }
     attr_accessor :exception_data
+
+    # ─── Automatic Capture ─────────────────────────────────────
+
+    # Master switch for recording exceptions (default: true).
+    attr_accessor :capture_enabled
+
+    # Capture unhandled exceptions from every request through Rack middleware,
+    # including controllers that do not include ExceptionLoggable (default: true).
+    attr_accessor :capture_requests
+
+    # Capture ActiveJob failures that escape retry_on/discard_on (default: true).
+    attr_accessor :capture_jobs
+
+    # Register a Sidekiq error handler when Sidekiq is loaded (default: true).
+    attr_accessor :capture_sidekiq
+
+    # Capture exceptions raised by rake tasks that load the Rails app (default: true).
+    attr_accessor :capture_rake_tasks
+
+    # Subscribe to the Rails error reporter (Rails.error), which covers
+    # `rails runner`, Rails.error.handle/record, and anything else that
+    # reports through it (default: true).
+    attr_accessor :capture_rails_errors
+
+    # Also record errors reported to Rails.error as handled, e.g. from
+    # Rails.error.handle { ... } (default: false: only unhandled errors).
+    attr_accessor :capture_handled_errors
+
+    # Exception class names that are never recorded. Subclasses are matched too.
+    attr_accessor :ignored_exceptions
+
+    # Write exception records on a background thread so capture never slows
+    # down the request or job (default: nil = on, except in the test environment).
+    attr_accessor :async_capture
+
+    # Maximum number of exceptions waiting to be written. When the queue is
+    # full, new exceptions are dropped and a warning is logged (default: 1000).
+    attr_accessor :async_queue_size
 
     # ─── Notifications ─────────────────────────────────────────
 
@@ -194,6 +243,18 @@ module RailsExceptionLog
       @per_page = 30
       @enabled = true
 
+      # Automatic capture
+      @capture_enabled = true
+      @capture_requests = true
+      @capture_jobs = true
+      @capture_sidekiq = true
+      @capture_rake_tasks = true
+      @capture_rails_errors = true
+      @capture_handled_errors = false
+      @ignored_exceptions = DEFAULT_IGNORED_EXCEPTIONS.dup
+      @async_capture = nil
+      @async_queue_size = 1000
+
       # Notifications
       @webhooks = []
       @webhook_timeout = 5
@@ -262,5 +323,10 @@ module RailsExceptionLog
       @table_prefix = "rails_exception_log_"
     end
 
+    def async_capture?
+      return async_capture unless async_capture.nil?
+
+      !(defined?(::Rails) && ::Rails.env.test?)
+    end
   end
 end

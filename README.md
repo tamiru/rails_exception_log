@@ -12,6 +12,8 @@ resolve them. No external service required.
 ## Features
 
 ### 🚨 Exception Capture
+- **Automatic Capture** — Requests, ActiveJob, Sidekiq, rake tasks, and `rails runner`, with no code changes
+- **Non-blocking** — Records are written on a background thread with a bounded queue
 - **Exception Dashboard** — Dark/light theme, keyboard shortcuts, tabbed detail view
 - **Cause Chains** — Track root cause through chained exceptions
 - **Breadcrumbs** — Activity trail leading up to each error
@@ -35,7 +37,6 @@ resolve them. No external service required.
 ### 🔔 Notifications
 - **Webhooks** — POST to Slack, Discord, or custom endpoints
 - **Telegram** — Built-in notifier with rate limiting
-- **Sidekiq Middleware** — Automatic background job exception logging
 
 ### 🛠️ Developer Experience
 - **Keyboard Shortcuts** — Full keyboard navigation (`/`, `j`, `k`, `Enter`, `?`)
@@ -73,7 +74,7 @@ This will:
 1. Copy the database migration with proper indexes.
 2. Create a configuration initializer at `config/initializers/rails_exception_log.rb`.
 3. Mount the engine in your routes.
-4. Add `rescue_from StandardError, with: :log_exception_handler` to `ApplicationController`.
+4. Add `rescue_from StandardError, with: :log_exception_handler` to `ApplicationController` (optional: the middleware already records request errors).
 
 The dashboard is now available at `/rails_exception_log`.
 
@@ -96,20 +97,30 @@ Options: `--layout-only`, `--views-only`, `--stimulus-only`, `--initializer-only
 
 ## Start logging exceptions
 
-Include `RailsExceptionLog::ExceptionLoggable` in your application controller:
+Once the gem is installed, exceptions are recorded automatically. There is
+nothing to add to your controllers or jobs:
 
-```ruby
-class ApplicationController < ActionController::Base
-  include RailsExceptionLog::ExceptionLoggable
-end
-```
+| Where the error happens | How it is caught |
+|---|---|
+| Any controller, including engine and API controllers | Rack middleware |
+| ActiveJob (any adapter) | `perform.active_job` event, final failure only (attempts that `retry_on` will retry are skipped) |
+| Plain Sidekiq jobs | Sidekiq error handler, registered automatically |
+| Rake tasks that load the app (`=> :environment`) | Wrapper around `Rake::Task#execute` |
+| `rails runner`, `Rails.error.record`/`report` | Rails error reporter (`Rails.error`) subscriber |
 
-RailsExceptionLog logs the exception and then re-raises it so Rails keeps its normal error handling.
+Each exception is recorded once even when several of these see it, and
+RailsExceptionLog always re-raises so Rails keeps its normal error handling.
+
+Records are written on a background thread, so capture never slows down the
+request or job that failed. The queue is bounded (`async_queue_size`) and is
+drained when the process exits. In the test environment writes are
+synchronous so your tests can assert on them.
 
 Each capture includes the full filtered request context, request ID, user agent,
 current-user identity, normalized fingerprint, cause chain, bounded backtrace,
 exception instance variables, runtime/system health, and any `exception_data`
-returned by your configuration. Custom and exception data appear in the
+returned by your configuration. Jobs also store their class, ID, queue,
+attempt count, and arguments. Custom and exception data appear in the
 **Context** tab. Passwords, tokens, cookies, authorization headers, and the host
 application's configured filter parameters are replaced with `[FILTERED]`.
 
@@ -117,26 +128,44 @@ When structured logging is enabled, the Rails logger receives the same context
 as a single JSON event. `log_backtrace_limit`, `log_params`, and
 `log_user_info` control how much is included in that event.
 
-### API controllers
-
-For `ActionController::API` subclasses (e.g., API namespaces):
+### Exceptions you rescue yourself
 
 ```ruby
-class Api::V1::BaseController < ActionController::API
-  include RailsExceptionLog::ExceptionLoggable
+begin
+  PaymentGateway.charge(order)
+rescue PaymentGateway::Timeout => e
+  RailsExceptionLog.capture(e, data: { order_id: order.id })
+  retry_later(order)
 end
 ```
 
-### Background jobs (Sidekiq)
-
-RailsExceptionLog automatically logs Sidekiq job exceptions when the middleware is configured:
+### Choosing what is captured
 
 ```ruby
-# config/initializers/sidekiq.rb
-Sidekiq.configure_server do |config|
-  config.server_middleware do |chain|
-    chain.add RailsExceptionLogSidekiqMiddleware
-  end
+config.capture_requests = true        # Rack middleware
+config.capture_jobs = true            # ActiveJob
+config.capture_sidekiq = true         # plain Sidekiq jobs
+config.capture_rake_tasks = true      # rake tasks
+config.capture_rails_errors = true    # Rails.error subscriber (runner, etc.)
+config.capture_handled_errors = false # also record Rails.error.handle { }
+config.capture_enabled = true         # master switch
+
+# 404s and malformed requests are skipped by default. Subclasses match too.
+config.ignored_exceptions += ["Pundit::NotAuthorizedError"]
+
+config.async_capture = nil            # nil = on, except in the test environment
+config.async_queue_size = 1000        # exceptions waiting to be written
+```
+
+### Per-controller exception data
+
+`ExceptionLoggable` is optional. Include it when a controller needs its own
+`exception_data`, or to keep the older `rescue_from` setup working:
+
+```ruby
+class ApplicationController < ActionController::Base
+  include RailsExceptionLog::ExceptionLoggable
+  self.exception_data = ->(controller) { { tenant: controller.current_tenant&.slug } }
 end
 ```
 
@@ -431,8 +460,8 @@ To release a version, update `lib/rails_exception_log/version.rb` and `CHANGELOG
 merge the changes to `main`, then push a matching tag:
 
 ```bash
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 The workflow verifies that the tag matches the gem version, runs the tests,

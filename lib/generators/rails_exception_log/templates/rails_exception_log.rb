@@ -24,6 +24,19 @@ Rails.application.config.to_prepare do
     #   }
     # end
 
+    # ─── Automatic Capture ───────────────────────────────────
+    # Requests, ActiveJob, Sidekiq, rake tasks, and rails runner are captured
+    # automatically. Turn individual sources off here if needed.
+    # config.capture_requests = true
+    # config.capture_jobs = true
+    # config.capture_sidekiq = true
+    # config.capture_rake_tasks = true
+    # config.capture_rails_errors = true
+    # config.capture_handled_errors = false
+    # config.ignored_exceptions += ["Pundit::NotAuthorizedError"]
+    # config.async_capture = nil          # nil = background writes except in tests
+    # config.async_queue_size = 1000
+
     # ─── Notifications ───────────────────────────────────────
     # Custom callback after exception is created
     # config.after_create = lambda do |exception|

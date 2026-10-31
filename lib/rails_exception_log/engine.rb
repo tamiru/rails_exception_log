@@ -110,6 +110,22 @@ module RailsExceptionLog
       end
     end
 
+    # ─── Automatic capture ────────────────────────────────────────
+    # Each hook checks its config.capture_* flag when an error happens, so
+    # the flags can be set in the host initializer as usual.
+
+    initializer "rails_exception_log.capture_middleware" do |app|
+      app.middleware.use RailsExceptionLog::Middleware
+    end
+
+    config.after_initialize do
+      Rails.error.subscribe(RailsExceptionLog::ErrorSubscriber.new) if Rails.respond_to?(:error)
+      RailsExceptionLog::ActiveJobCapture.subscribe!
+      RailsExceptionLog::SidekiqCapture.install!
+      RailsExceptionLog::RakeCapture.install!
+      at_exit { RailsExceptionLog::AsyncWriter.shutdown }
+    end
+
     # ─── Breadcrumbs subscription ─────────────────────────────────
 
     initializer "rails_exception_log.breadcrumbs" do
