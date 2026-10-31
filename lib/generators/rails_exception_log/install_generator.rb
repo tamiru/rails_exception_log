@@ -1,53 +1,48 @@
-require 'rails/generators/base'
+# frozen_string_literal: true
+
+require "rails/generators"
+require "rails/generators/active_record"
 
 module RailsExceptionLog
   module Generators
     class InstallGenerator < Rails::Generators::Base
-      source_root File.expand_path('install/templates', __dir__)
+      include Rails::Generators::Migration
 
-      class_option :skip_migrations, type: :boolean, default: false,
-                                     desc: 'Skip migrations installation'
+      source_root File.expand_path("templates", __dir__)
+      desc "Install RailsExceptionLog into your Rails application"
 
-      def copy_migrations
-        return if options[:skip_migrations]
+      def self.next_migration_number(dirname)
+        ActiveRecord::Generators::Base.next_migration_number(dirname)
+      end
 
-        puts 'Copying migrations...'
-        migrations_dir = File.expand_path('db/migrate', destination_root)
-        FileUtils.mkdir_p(migrations_dir)
+      def create_migration_files
+        migration_template "migration.rb", "db/migrate/create_rails_exception_log_tables.rb"
+      end
 
-        source_migrations = File.join(__dir__, '../../db/migrate/*.rb')
-        Dir.glob(source_migrations).each do |file|
-          filename = File.basename(file)
-          dest = File.join(migrations_dir, filename)
-          if File.exist?(dest)
-            puts "  skip   #{filename} (already exists)"
-          else
-            FileUtils.cp(file, dest)
-            puts "  create  #{filename}"
+      def create_initializer
+        template "rails_exception_log.rb", "config/initializers/rails_exception_log.rb"
+      end
+
+      def mount_routes
+        route 'mount RailsExceptionLog::Engine, at: "/rails_exception_log"'
+      end
+
+      def add_rescue_from
+        app_controller = "app/controllers/application_controller.rb"
+        destination_controller = File.join(destination_root, app_controller)
+
+        if File.exist?(destination_controller)
+          content = File.read(destination_controller)
+          unless content.include?("log_exception_handler")
+            inject_into_class app_controller, "ApplicationController" do
+              "\n  rescue_from StandardError, with: :log_exception_handler\n"
+            end
           end
         end
       end
 
-      def add_routes
-        route_content = "
-# Exception Log Routes
-mount RailsExceptionLog::Engine => '/exceptions'
-"
-
-        route_file = File.expand_path('config/routes.rb', destination_root)
-        return unless File.exist?(route_file)
-
-        existing_content = File.read(route_file)
-        return if existing_content.include?('RailsExceptionLog::Engine')
-
-        File.open(route_file, 'a') do |f|
-          f.puts route_content
-        end
-        puts '  route  mount RailsExceptionLog::Engine'
-      end
-
       def show_readme
-        readme 'lib/generators/install/templates/README.md' if behavior == :invoke
+        readme "INSTALL.md" if behavior == :invoke
       end
     end
   end

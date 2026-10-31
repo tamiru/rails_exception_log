@@ -1,0 +1,82 @@
+name: Release gem
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish rails_exception_log
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://rubygems.org/gems/rails_exception_log
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0.5"
+          bundler-cache: true
+
+      - name: Verify tag matches gem version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="$(ruby -Ilib -rrails_exception_log/version -e 'print RailsExceptionLog::VERSION')"
+          test "$RELEASE_TAG" = "v${version}" || {
+            echo "Tag ${RELEASE_TAG} does not match gem version ${version}" >&2
+            exit 1
+          }
+
+      - name: Prepare database
+        run: bin/rails app:db:prepare
+
+      - name: Run release tests
+        run: bin/rails test
+
+      - name: Build and validate gem
+        run: |
+          version="$(ruby -Ilib -rrails_exception_log/version -e 'print RailsExceptionLog::VERSION')"
+          mkdir -p pkg
+          gem build rails_exception_log.gemspec --output "pkg/rails_exception_log-${version}.gem"
+          gem check "pkg/rails_exception_log-${version}.gem"
+
+      - name: Publish to RubyGems
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: |
+          test -n "$GEM_HOST_API_KEY" || {
+            echo "::error::RUBYGEMS_API_KEY is not configured"
+            exit 1
+          }
+          gem push pkg/rails_exception_log-*.gem --host https://rubygems.org </dev/null
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub release $RELEASE_TAG already exists"
+          else
+            gh release create "$RELEASE_TAG" pkg/*.gem \
+              --verify-tag \
+              --generate-notes
+          fi

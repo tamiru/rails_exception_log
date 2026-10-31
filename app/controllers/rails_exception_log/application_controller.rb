@@ -1,17 +1,24 @@
 module RailsExceptionLog
   class ApplicationController < ActionController::Base
+    include Pagy::Method
     protect_from_forgery with: :exception
-
-    before_action :ensure_exception_log_enabled
+    before_action :rails_exception_log_require_auth!
 
     private
 
-    def ensure_exception_log_enabled
-      return if Rails.env.development? || Rails.env.test?
+    def rails_exception_log_pagy(collection, **options)
+      limit = options.delete(:limit) || RailsExceptionLog.configuration.per_page || 30
+      pagy(:offset, collection, limit: limit, **options)
+    end
 
-      return if RailsExceptionLog.before_log_exception.call(self)
+    def rails_exception_log_require_auth!
+      auth_block = RailsExceptionLog.configuration.auth_block
+      return if auth_block&.call(self)
 
-      render plain: 'Unauthorized', status: 401
+      head :forbidden
+    rescue StandardError => error
+      Rails.logger.error("[RailsExceptionLog] Authentication error: #{error.class}: #{error.message}")
+      head :forbidden
     end
   end
 end

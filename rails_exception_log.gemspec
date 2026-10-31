@@ -1,32 +1,35 @@
-require_relative 'lib/rails_exception_log/version'
+require_relative "lib/rails_exception_log/version"
 
 Gem::Specification.new do |spec|
-  spec.name = 'rails_exception_log'
-  spec.version = RailsExceptionLog::VERSION
-  spec.authors = ['Tamiru Hailu
-  ']
-  spec.email = ['tamiruhailu@gmail.com']
-  spec.summary = 'Modern exception logging gem with Tailwind UI for Rails 7 and 8'
-  spec.description = 'A beautiful exception logging gem that stores Rails exceptions in a database with a modern Tailwind UI dashboard'
-  spec.homepage = 'https://github.com/tamiru/rails_exception_log'
-  spec.license = 'MIT'
-  spec.required_ruby_version = '>= 3.0'
+  spec.name        = "rails_exception_log"
+  spec.version     = RailsExceptionLog::VERSION
+  spec.authors     = ["Tamiru Hailu"]
+  spec.email       = ["tamiruhailu@gmail.com"]
+  spec.homepage    = "https://github.com/tamiru/rails_exception_log"
+  spec.summary     = "Exception logging and triage dashboard for Rails applications"
+  spec.description = "RailsExceptionLog captures exceptions from your Rails application into your database and gives you a dashboard to search, triage, and resolve them: cause chains, breadcrumbs, inline source with git blame, assignment/priority/snooze/mute workflow, comments, storm protection, and webhook/Telegram notifications. Built with Hotwire and Stimulus."
+  spec.metadata["rubygems_mfa_required"] = "true"
+  spec.license     = "MIT"
 
-  spec.metadata = {
-    'bug_tracker_uri' => 'https://github.com/yourusername/rails_exception_log/issues',
-    'changelog_uri' => 'https://github.com/tamiru/rails_exception_log/blob/main/CHANGELOG.md',
-    'documentation_uri' => 'https://github.com/tamiru/rails_exception_log#readme',
-    'homepage_uri' => 'https://github.com/tamiru/rails_exception_log',
-    'source_code_uri' => 'https://github.com/tamiru/rails_exception_log'
-  }
+  spec.metadata["allowed_push_host"] = "https://rubygems.org"
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "https://github.com/tamiru/rails_exception_log/tree/main"
+  spec.metadata["changelog_uri"] = "https://github.com/tamiru/rails_exception_log/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "https://github.com/tamiru/rails_exception_log/issues"
+  spec.metadata["funding_uri"] = "https://github.com/sponsors/tamiru"
 
-  spec.files = Dir['{app,config,db,lib}/**/*', 'MIT-LICENSE', 'README.md']
-  spec.bindir = 'exe'
-  spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.files = Dir.chdir(File.expand_path(__dir__)) do
+    Dir["{app,config,db,lib}/**/*", "CHANGELOG.md", "SECURITY.md", "THIRD_PARTY_NOTICES.md", "MIT-LICENSE", "Rakefile", "README.md", "rails_exception_log.gemspec"]
+      .reject { |file| file.match?(%r{(?:^|/)(?:\.idea|log|tmp|storage|pkg)(?:/|$)|\.(?:gem|sqlite3|log)\z|Zone\.Identifier\z}) }
+  end
 
-  spec.add_dependency 'rails', '>= 7.0', '< 9.0'
+  spec.required_ruby_version = ">= 3.2.0"
 
-  spec.add_development_dependency 'mysql2', '>= 0.5'
-  spec.add_development_dependency 'pg', '>= 1.0'
-  spec.add_development_dependency 'sqlite3', '~> 1.4'
+  spec.add_dependency "rails", "~> 8.0", ">= 8.0.0"
+  spec.add_dependency "stimulus-rails", "~> 1.3"
+  spec.add_dependency "turbo-rails", "~> 2.0"
+  spec.add_dependency "pagy", ">= 43.0"
+
+  spec.add_dependency "ransack", "~> 4.0"
+
 end

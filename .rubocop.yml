@@ -1,0 +1,18 @@
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  DisabledByDefault: true
+  Exclude:
+    - "app/assets/javascripts/rails_exception_log/application.js"
+    - "lib/generators/rails_exception_log/templates/**/*.rb"
+    - "test/dummy/**/*"
+    - "vendor/**/*"
+
+Lint:
+  Enabled: true
+
+Security:
+  Enabled: true
+
+Gemspec/RequireMFA:
+  Enabled: true

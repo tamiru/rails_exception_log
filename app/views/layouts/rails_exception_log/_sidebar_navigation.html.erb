@@ -1,0 +1,53 @@
+<nav class="rn-sidebar-nav" aria-label="RailsExceptionLog navigation">
+  <details class="rn-nav-section" data-action="toggle->rails_exception_log-sidebar#closeOtherMenus" <%= "open" if monitor_menu_active %>>
+    <summary class="rn-nav-section-toggle">
+      <span class="rn-nav-section-title">
+        <span class="rn-nav-section-icon"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h3l2.25-6 4.5 12 2.25-6H21" /></svg></span>
+        <span>Monitor</span>
+      </span>
+      <svg class="rn-nav-section-chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+    </summary>
+    <div class="rn-nav-section-items">
+
+    <%= link_to root_path,
+      class: "rn-nav-item #{request.path == rails_exception_log.root_path ? 'active' : ''}" do %>
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-3.75v6.75A2.25 2.25 0 0118.75 18H5.25A2.25 2.25 0 013 15.75V9m18 0l-9-6-9 6m18 0l-9 6-9-6" /></svg>
+      Exceptions
+      <% if exception_count > 0 %>
+        <span class="rn-nav-badge"><%= number_with_delimiter(exception_count) %></span>
+      <% end %>
+    <% end %>
+    </div>
+  </details>
+
+  <details class="rn-nav-section" data-action="toggle->rails_exception_log-sidebar#closeOtherMenus" <%= "open" if resources_menu_active %>>
+    <summary class="rn-nav-section-toggle">
+      <span class="rn-nav-section-title">
+        <span class="rn-nav-section-icon"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6H6.75A3.75 3.75 0 003 9.75v7.5A3.75 3.75 0 006.75 21h7.5A3.75 3.75 0 0018 17.25V13.5m-6-1.5L21 3m0 0h-5.25M21 3v5.25" /></svg></span>
+        <span>Resources</span>
+      </span>
+      <svg class="rn-nav-section-chevron" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+    </summary>
+    <div class="rn-nav-section-items">
+
+    <% if main_app.respond_to?(:root_path) %>
+      <%= link_to main_app.root_path, class: "rn-nav-item rn-nav-item--muted" do %>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+        Back to App
+      <% end %>
+    <% end %>
+
+    <%= link_to feed_logged_exceptions_path(format: :rss), class: "rn-nav-item rn-nav-item--muted" do %>
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 19.5v-.75a7.5 7.5 0 00-7.5-7.5H4.5m0-6.75h.75c7.87 0 14.25 6.38 14.25 14.25v.75M6 18.75a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+      RSS Feed
+    <% end %>
+
+    <% RailsExceptionLog.configuration.sidebar_links.each do |link| %>
+      <%= link_to link[:url], class: "rn-nav-item", target: link[:target] || "_self" do %>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+        <%= link[:label] %>
+      <% end %>
+    <% end %>
+    </div>
+  </details>
+</nav>
