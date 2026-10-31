@@ -5,3 +5,4 @@ gem "rails", "~> 8.0.0"
 gem "rack", ">= 3.2"
 gem "sqlite3", ">= 2.1"
 gem "sprockets-rails", "~> 3.4"
+gem "json", "< 3" # Rails 8.0 passes quirks_mode, which json 3 removed
