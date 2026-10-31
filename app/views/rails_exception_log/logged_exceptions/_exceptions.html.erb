@@ -75,7 +75,7 @@
             <tr id="<%= dom_id(exception) %>"
                 class="group"
                 tabindex="0"
-                aria-label="View <%= exception.exception_class %>: <%= exception.message.presence || 'No message' %>"
+                aria-label="View <%= exception.exception_class %>: <%= exception.display_message.presence || 'No message' %>"
                 data-action="click->rails_exception_log#selectRow keydown.enter->rails_exception_log#selectRow keydown.space->rails_exception_log#selectRow"
                 data-url="<%= logged_exception_path(exception) %>"
                 data-index="<%= index %>"
@@ -86,9 +86,12 @@
                 <div class="rn-exception-cell">
                   <span class="rn-severity-dot rn-severity-<%= severity_for(exception) %>" aria-hidden="true"></span>
                   <div class="min-w-0">
-                    <span class="rn-exception-name" title="<%= exception.exception_class %>"><%= exception.exception_class %></span>
+                    <span class="rn-exception-name" title="<%= exception.exception_class %>"><%= breakable_class_name(exception.exception_class) %></span>
                     <% if exception.respond_to?(:fingerprint) && exception.fingerprint.present? %>
                       <span class="rn-row-meta rn-mono" title="Fingerprint <%= exception.fingerprint %>">#<%= exception.fingerprint.first(10) %></span>
+                    <% end %>
+                    <% if exception.status_badges.any? %>
+                      <span class="rn-row-badges"><%= status_badges_for(exception) %></span>
                     <% end %>
                   </div>
                 </div>
@@ -106,8 +109,8 @@
 
               <%# Message (truncated) %>
               <td class="rn-col-message">
-                <div class="rn-msg" title="<%= exception.message %>">
-                  <%= exception.message.presence || "No message" %>
+                <div class="rn-msg" title="<%= exception.display_message %>">
+                  <%= exception.display_message.presence || "No message" %>
                 </div>
                 <% if (location_label = exception.location_label) %>
                   <span class="rn-row-location rn-mono" title="<%= location_label %>"><%= location_label %></span>

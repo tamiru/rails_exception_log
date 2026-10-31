@@ -124,9 +124,9 @@ module RailsExceptionLog
       }.compact
     end
 
-    def filtered_scope
+    def filtered_scope(include_id_filter: true)
       exceptions = LoggedException.all
-      exceptions = exceptions.where(id: params[:id]) if params[:id].present?
+      exceptions = exceptions.where(id: params[:id]) if include_id_filter && params[:id].present?
       exceptions = exceptions.message_like(params[:query]) if params[:query].present?
       exceptions = exceptions.days_old(params[:date_ranges_filter]) if params[:date_ranges_filter].present?
       exceptions = exceptions.by_exception_class(params[:exception_names_filter]) if params[:exception_names_filter].present?
@@ -189,26 +189,28 @@ module RailsExceptionLog
       }
     end
 
+    NavExceptionLink = Struct.new(:id, :exception_class)
+
+    # Neighbours of the current exception in list order (newest first):
+    # "previous" is the row above it, "next" the row below. params[:id] is
+    # this record's id here, not a search filter, so it is left out.
     def load_nav_exceptions
-      scope = filtered_scope.sorted
-      ids = scope.pluck(:id)
-      current_idx = ids.index(@exception.id)
+      table = LoggedException.arel_table
+      at = @exception.created_at
+      newer = table[:created_at].gt(at).or(table[:created_at].eq(at).and(table[:id].gt(@exception.id)))
+      older = table[:created_at].lt(at).or(table[:created_at].eq(at).and(table[:id].lt(@exception.id)))
+      scope = filtered_scope(include_id_filter: false)
 
-      if current_idx
-        @prev_exception_id = ids[current_idx + 1]
-        @next_exception_id = ids[current_idx - 1]
-      end
+      @prev_exception = nav_link(scope.where(newer).reorder(created_at: :asc, id: :asc))
+      @next_exception = nav_link(scope.where(older).reorder(created_at: :desc, id: :desc))
     end
 
-    def prev_exception
-      return nil unless @prev_exception_id
-      Struct.new(:id).new(@prev_exception_id)
+    def nav_link(scope)
+      row = scope.pick(:id, :exception_class)
+      NavExceptionLink.new(*row) if row
     end
 
-    def next_exception
-      return nil unless @next_exception_id
-      Struct.new(:id).new(@next_exception_id)
-    end
+    attr_reader :prev_exception, :next_exception
 
     def load_exception_tabs
       @exception_tabs = {

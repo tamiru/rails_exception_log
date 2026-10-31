@@ -151,7 +151,54 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select ".rn-tab", text: "Context"
     assert_select "[data-rn-tab-content='diagnostic_context']", text: /request-123/
     assert_select ".rn-meta-value", text: "4.2.1"
-    assert_select ".rn-meta-value", text: "12"
+    assert_select ".rn-detail-title-row .rn-pill", text: "12 occurrences"
+  end
+
+  test "previous and next follow the list order and never point at the current record" do
+    older = RailsExceptionLog::LoggedException.create!(exception_class: "OlderError", message: "older", created_at: 2.hours.ago)
+    newer = RailsExceptionLog::LoggedException.create!(exception_class: "NewerError", message: "newer", created_at: 1.minute.from_now)
+
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select ".rn-nav-link[href^='/rails_exception_log/logged_exceptions/#{newer.id}'] .rn-nav-link-title", text: "NewerError"
+    assert_select ".rn-nav-link[href^='/rails_exception_log/logged_exceptions/#{older.id}'] .rn-nav-link-title", text: "OlderError"
+    assert_select ".rn-nav-link[href^='/rails_exception_log/logged_exceptions/#{@exception.id}']", count: 0
+
+    get "/rails_exception_log/logged_exceptions/#{newer.id}"
+    assert_select ".rn-nav-link-label", text: "Previous", count: 0
+    assert_select ".rn-nav-link-label", text: "Next"
+  end
+
+  test "exception class names are escaped while still wrapping at ::" do
+    @exception.update!(exception_class: "Billing::<img src=x onerror=alert(1)>")
+
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select ".rn-detail-title img", count: 0
+    assert_select ".rn-detail-title wbr", count: 1
+    assert_includes response.body, "Billing::<wbr>&lt;img src=x onerror=alert(1)&gt;"
+
+    get "/rails_exception_log/logged_exceptions"
+    assert_select ".rn-exception-name img", count: 0
+  end
+
+  test "show leaves the appended context out of the message and lists request fields" do
+    @exception.update!(
+      message: "boom\n* Extra Data\n\n{:user_id=>7}",
+      request: "* Method: GET\n* URL: http://example.com/orders/7",
+      priority: "critical",
+      assigned_to: "amina"
+    )
+
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+
+    assert_select ".rn-detail-subtitle", text: "boom"
+    assert_select ".rn-detail-title-row .rn-pill-danger", text: "Critical"
+    assert_select ".rn-detail-title-row .rn-pill-info", text: "@amina"
+    assert_select ".rn-kv-row dt", text: "Method"
+    assert_select ".rn-kv-row dd", text: "http://example.com/orders/7"
+
+    get "/rails_exception_log/logged_exceptions"
+    assert_select ".rn-msg", text: "boom"
+    assert_select ".rn-row-badges .rn-pill", text: "Critical"
   end
 
   test "show as turbo stream" do

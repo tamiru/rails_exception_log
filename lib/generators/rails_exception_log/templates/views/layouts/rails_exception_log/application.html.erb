@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <title><%= content_for?(:title) ? yield(:title) : RailsExceptionLog.configuration.application_name || "RailsExceptionLog" %></title>
 
+  <%= render "layouts/rails_exception_log/theme_script" %>
   <%= stylesheet_link_tag "rails_exception_log/application", "data-turbo-track": "reload" %>
   <%= javascript_include_tag "rails_exception_log/application", defer: true, "data-turbo-track": "reload" %>
 

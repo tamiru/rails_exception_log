@@ -499,8 +499,8 @@ To release a version, update `lib/rails_exception_log/version.rb` and `CHANGELOG
 merge the changes to `main`, then push a matching tag:
 
 ```bash
-git tag v2.2.0
-git push origin v2.2.0
+git tag v2.3.0
+git push origin v2.3.0
 ```
 
 The workflow verifies that the tag matches the gem version, runs the tests,

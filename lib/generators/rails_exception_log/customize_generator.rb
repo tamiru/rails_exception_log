@@ -30,7 +30,7 @@ module RailsExceptionLog
       def generate_layout
         return unless generate_all? || options[:layout_only]
 
-        template "views/layouts/rails_exception_log/application.html.erb",
+        copy_file "views/layouts/rails_exception_log/application.html.erb",
                  "app/views/layouts/rails_exception_log/application.html.erb"
       end
 

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-31
+
+### Changed
+- **Detail page header** — The exception class is the title, followed by the
+  occurrence count, priority, assignee, and muted/snoozed badges, the message,
+  and a meta line with source, file:line, time, and IP. On phones the copy and
+  close buttons move to their own row so the title gets the full width.
+- **Clean messages** — The list, header, and copy button show the exception's
+  own message; the appended "Extra Data" dump stays in the Context tab.
+- **Exception list** — Full class names wrap at `::` instead of being cut off,
+  and each row shows its priority, assignee, and muted/snoozed badges.
+- **Source snippets** — Monospace font, with the failing line tinted and its
+  line number highlighted.
+- **Request and Environment** — Shown as key/value tables instead of
+  `* Key: value` paragraphs.
+- **Details grid** — Duplicate entries removed, "Source" label, two columns on
+  phones, and values no longer split mid-word.
+
+### Fixed
+- Dark mode flashed light, then faded to dark, on every page load; the theme
+  is now applied before the first paint.
+- Previous/next navigation on the detail page pointed at the current
+  exception (the record id was applied as a search filter). It now follows the
+  list order and names the neighbouring exceptions.
+- `rails_exception_log:customize` failed while copying the layout; it is now
+  copied as-is.
+- The failing source line was not highlighted (its background variable was
+  never defined).
+
 ## [2.2.0] - 2026-10-31
 
 ### Added

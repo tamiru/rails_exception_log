@@ -18,4 +18,13 @@ class RailsExceptionLog::Generators::CustomizeGeneratorTest < Rails::Generators:
       assert_file "app/views/rails_exception_log/logged_exceptions/#{view}", File.read(engine_views.join(view))
     end
   end
+
+  test "the layout is copied verbatim, keeping its ERB for the app to render" do
+    run_generator ["--layout-only"]
+
+    assert_file "app/views/layouts/rails_exception_log/application.html.erb" do |content|
+      assert_match(/<%= render "layouts\/rails_exception_log\/theme_script" %>/, content)
+      assert_match(/<%= stylesheet_link_tag "rails_exception_log\/application"/, content)
+    end
+  end
 end

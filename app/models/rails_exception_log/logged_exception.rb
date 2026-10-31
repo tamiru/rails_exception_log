@@ -252,6 +252,26 @@ module RailsExceptionLog
       "#{self.exception_class} in #{self.controller_action}"
     end
 
+    # The exception's own message. Stored messages also carry an appended
+    # "* Extra Data" dump of the context, which is shown in the Context tab.
+    EXTRA_DATA_MARKER = "\n* Extra Data"
+
+    def display_message
+      message.to_s.split(EXTRA_DATA_MARKER, 2).first.to_s.strip
+    end
+
+    PRIORITY_TONES = { "critical" => "danger", "high" => "warning", "medium" => "info", "low" => "muted" }.freeze
+
+    # Short labels for the triage state shown as badges in the list and header.
+    def status_badges
+      badges = []
+      badges << { label: priority.to_s.capitalize, tone: PRIORITY_TONES.fetch(priority.to_s, "muted") } if priority.present?
+      badges << { label: "@#{assigned_to}", tone: "info" } if assigned_to.present?
+      badges << { label: "Muted", tone: "muted" } if muted?
+      badges << { label: "Snoozed", tone: "muted" } if snoozed?
+      badges
+    end
+
     # ─── Backtrace frames ──────────────────────────────────────────
     # Matches "file:12", "file:12:in `meth'" (Ruby <= 3.3), and
     # "file:12:in 'Klass#meth'" (Ruby 3.4+).

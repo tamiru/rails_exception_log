@@ -1,0 +1,14 @@
+<%# "* Key: value" text (request, environment) as a key/value list. %>
+<% pairs = detail_pairs(text) %>
+<% if pairs.any? %>
+  <dl class="rn-kv">
+    <% pairs.each do |key, value| %>
+      <div class="rn-kv-row">
+        <dt><%= key %></dt>
+        <dd class="rn-mono"><%= value %></dd>
+      </div>
+    <% end %>
+  </dl>
+<% else %>
+  <div class="rn-detail-code"><%= pretty_format(text) %></div>
+<% end %>

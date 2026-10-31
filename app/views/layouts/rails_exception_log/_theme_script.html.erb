@@ -1,0 +1,14 @@
+<%# Sets the theme class before first paint so dark mode does not flash light. %>
+<%= javascript_tag nonce: true do %>
+  (function () {
+    var configured = <%= raw RailsExceptionLog.configuration.theme.to_s.to_json %>;
+    var theme = null;
+    try { theme = localStorage.getItem("rails_exception_log-theme"); } catch (e) {}
+    if (theme !== "light" && theme !== "dark") {
+      theme = configured === "light" || configured === "dark" ? configured
+        : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(theme);
+  })();
+<% end %>

@@ -49,13 +49,34 @@ module RailsExceptionLog
       content_for(:title, title)
     end
 
-    # Rescue textilize call if RedCloth is not available.
-    def pretty_format(text)
-      begin
-        textilize(text).html_safe
-      rescue
-        simple_format(text).html_safe
+    # Readable text for a detail box (.rn-detail-code preserves line breaks):
+    # hashes, arrays, and JSON strings are pretty-printed, anything else is
+    # shown as-is.
+    def pretty_format(value)
+      value = JSON.parse(value) if value.is_a?(String) && value.lstrip.start_with?("{", "[")
+      value.is_a?(Hash) || value.is_a?(Array) ? JSON.pretty_generate(value) : value.to_s
+    rescue JSON::ParserError, JSON::GeneratorError
+      value.to_s
+    end
+
+    # Splits the stored "* Key: value" request/environment text into pairs.
+    # Returns [] when the text is not in that format.
+    def detail_pairs(text)
+      text.to_s.each_line.filter_map do |line|
+        match = line.match(/\A\*\s+(.+?)\s*:\s(.*)\z/m)
+        [match[1].strip, match[2].strip] if match
       end
+    end
+
+    # "Foo::Bar::Baz" with line-break opportunities after each "::"; every part is escaped.
+    def breakable_class_name(name)
+      safe_join(name.to_s.split("::"), safe_join(["::", tag.wbr]))
+    end
+
+    def status_badges_for(exception)
+      safe_join(exception.status_badges.map do |badge|
+        content_tag(:span, badge[:label], class: "rn-pill rn-pill-#{badge[:tone]}")
+      end)
     end
 
     # Sort link helper for Ransack-compatible table headers.
