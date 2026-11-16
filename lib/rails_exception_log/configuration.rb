@@ -87,7 +87,7 @@ module RailsExceptionLog
 
     # Proc called with the LoggedException record when an exception that was
     # resolved happens again (it is reopened and flagged as a regression).
-    # Not called for muted exceptions. Webhooks also receive these, with
+    # Not called for muted or snoozed exceptions. Webhooks also receive these, with
     # event "exception.regressed".
     # Example:
     #   config.after_regression = ->(exception) { MyNotifier.alert(exception, regression: true) }

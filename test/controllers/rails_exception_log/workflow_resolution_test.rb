@@ -38,6 +38,15 @@ class RailsExceptionLog::WorkflowResolutionTest < ActionDispatch::IntegrationTes
     assert_includes response.body, "workflow-panel"
     assert_includes response.body, "Reopen"
     assert_includes response.body, "Resolved"
+    assert_match(/<turbo-stream action="update" target="exception-status-badges">.*rn-pill-success.*Resolved/m, response.body)
+  end
+
+  test "the show page wraps the header badges so workflow updates can refresh them" do
+    @exception.update!(regressed_at: 1.hour.ago)
+
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+
+    assert_match(/id="exception-status-badges"[^>]*>.*Regression/m, response.body)
   end
 
   test "the status filter lists regressions" do

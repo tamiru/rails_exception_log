@@ -138,13 +138,11 @@ module RailsExceptionLog
         existing = where(fingerprint: attributes["fingerprint"]).order(created_at: :desc).first
 
         record = if existing
-          regression = existing.resolved?
-          updates = attributes.except("fingerprint").merge(
+          regression = existing.resolved? && existing.claim_regression(captured_at)
+          existing.update!(attributes.except("fingerprint").merge(
             "occurrence_count" => existing.occurrence_count.to_i + 1,
             "created_at" => captured_at
-          )
-          updates.merge!("resolved_at" => nil, "resolved_by" => nil, "regressed_at" => captured_at) if regression
-          existing.update!(updates)
+          ))
           existing.record_regression if regression
           existing
         else
@@ -282,8 +280,8 @@ module RailsExceptionLog
       badges << { label: priority.to_s.capitalize, tone: PRIORITY_TONES.fetch(priority.to_s, "muted") } if priority.present?
       badges << { label: "@#{assigned_to}", tone: "info" } if assigned_to.present?
       badges << { label: "Regression", tone: "danger" } if regressed?
-    badges << { label: "Resolved", tone: "success" } if resolved?
-    badges << { label: "Muted", tone: "muted" } if muted?
+      badges << { label: "Resolved", tone: "success" } if resolved?
+      badges << { label: "Muted", tone: "muted" } if muted?
       badges << { label: "Snoozed", tone: "muted" } if snoozed?
       badges
     end
@@ -1070,13 +1068,18 @@ module RailsExceptionLog
     end
 
     # Mark as fixed. If it happens again it is reopened as a regression.
+    # Does nothing if it is already resolved.
     def resolve!(author: "system")
+      return if resolved?
+
       update!(resolved_at: Time.current, resolved_by: author, regressed_at: nil)
       comments.create!(author: author, body: "Resolved", comment_type: "status_change")
     end
 
-    # Undo a resolve by hand.
+    # Undo a resolve by hand. Does nothing if it is not resolved.
     def reopen!(author: "system")
+      return unless resolved?
+
       update!(resolved_at: nil, resolved_by: nil)
       comments.create!(author: author, body: "Reopened", comment_type: "status_change")
     end
@@ -1090,13 +1093,28 @@ module RailsExceptionLog
       has_attribute?(:regressed_at) && regressed_at.present? && !resolved?
     end
 
-    # Called by persist_capture once a resolved exception has been reopened.
-    # Muted exceptions are reopened quietly.
+    # Reopens this resolved exception as a regression with a conditional
+    # update, so when several processes record the same occurrence at once
+    # only one of them wins and notifies. Returns true for the winner.
+    def claim_regression(at)
+      claimed = self.class.where(id: id).where.not(resolved_at: nil)
+                    .update_all(resolved_at: nil, resolved_by: nil, regressed_at: at) == 1
+      reload if claimed
+      claimed
+    end
+
+    # Called by persist_capture after claim_regression. Muted and snoozed
+    # exceptions are reopened quietly. A failing notifier or activity-log
+    # write never affects the other, nor the recorded occurrence.
     def record_regression
+      begin
+        RailsExceptionLog::Notifications.notify_regression(self) unless muted? || snoozed?
+      rescue StandardError => e
+        Rails.logger.error("[RailsExceptionLog] Regression notification failed: #{e.class}: #{e.message}")
+      end
       comments.create!(author: "system", body: "Regressed — happened again after being resolved", comment_type: "status_change")
-      RailsExceptionLog::Notifications.notify_regression(self) unless muted?
     rescue StandardError => e
-      Rails.logger.error("[RailsExceptionLog] Regression handling failed: #{e.class}: #{e.message}")
+      Rails.logger.error("[RailsExceptionLog] Regression activity entry failed: #{e.class}: #{e.message}")
     end
 
     # Check if currently snoozed

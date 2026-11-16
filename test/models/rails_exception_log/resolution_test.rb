@@ -125,6 +125,67 @@ class RailsExceptionLog::ResolutionTest < ActiveSupport::TestCase
     assert_equal 4, record.occurrence_count
   end
 
+  test "a snoozed exception is reopened quietly" do
+    calls = []
+    @config.after_regression = ->(exception) { calls << exception }
+    @exception.resolve!(author: "ana")
+    @exception.snooze(1.hour, author: "ana")
+
+    record = Model.persist_capture(capture_attributes).reload
+
+    assert record.regressed?
+    assert_empty calls
+  end
+
+  test "only one of two concurrent captures of a resolved exception notifies" do
+    calls = []
+    @config.after_regression = ->(exception) { calls << exception.id }
+    @exception.resolve!(author: "ana")
+    # Both writers loaded the record while it was still resolved.
+    first = Model.find(@exception.id)
+    second = Model.find(@exception.id)
+
+    assert first.claim_regression(Time.current)
+    refute second.claim_regression(Time.current)
+    refute first.resolved?
+    assert first.regressed?
+  end
+
+  test "a failing activity-log write still sends the regression notification" do
+    calls = []
+    @config.after_regression = ->(exception) { calls << exception.id }
+    @exception.resolve!(author: "ana")
+    comments = RailsExceptionLog::Comment.singleton_class
+    comments.alias_method(:__original_create!, :create!)
+
+    begin
+      comments.define_method(:create!) { |*| raise ActiveRecord::RecordInvalid }
+      record = Model.persist_capture(capture_attributes).reload
+
+      assert record.regressed?
+      assert_equal [@exception.id], calls
+    ensure
+      comments.alias_method(:create!, :__original_create!)
+      comments.remove_method(:__original_create!)
+    end
+  end
+
+  test "resolve! and reopen! do nothing when already in that state" do
+    @exception.resolve!(author: "ana")
+    resolved_at = @exception.resolved_at
+
+    assert_no_difference -> { @exception.comments.count } do
+      @exception.resolve!(author: "ben")
+    end
+    assert_equal "ana", @exception.reload.resolved_by
+    assert_equal resolved_at.to_i, @exception.resolved_at.to_i
+
+    @exception.reopen!(author: "ana")
+    assert_no_difference -> { @exception.comments.count } do
+      @exception.reopen!(author: "ana")
+    end
+  end
+
   test "scopes split resolved, unresolved, regressed, and active" do
     resolved = Model.create!(exception_class: "A", fingerprint: "fp-2")
     resolved.resolve!(author: "ana")

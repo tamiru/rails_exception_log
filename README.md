@@ -348,7 +348,7 @@ change is written to the exception's activity log.
 | **Resolve** / **Reopen** | Marks the exception fixed. If it happens again it reopens as a **Regression** and notifies you (see [Regressions](#regressions)). |
 | **Priority** | Critical, high, medium, or low. Shown as a badge and filterable. |
 | **Assign** | Free-text name or email of the owner. Filterable by assignee. |
-| **Snooze** | Hides it from the **Active** filter for 1 hour, 4 hours, 1 day, or 1 week. |
+| **Snooze** | Hides it from the **Active** filter, and silences regression notifications, for 1 hour, 4 hours, 1 day, or 1 week. |
 | **Mute** | Hides it from **Active** until unmuted, and silences regression notifications. |
 | **Comment** | Free-form notes, listed with the activity log. |
 
@@ -408,8 +408,9 @@ and every regression (`"event": "exception.regressed"`):
 Click **Resolve** on an exception once it is fixed. If the same exception
 (same fingerprint) happens again, it is reopened, flagged as a **Regression**
 in the list and detail page, and you are notified: webhooks receive an
-`exception.regressed` event, and `after_regression` is called. Muted
-exceptions are reopened without notifying. Filter the list by status
+`exception.regressed` event, and `after_regression` is called. Muted and
+snoozed exceptions are reopened without notifying. If several processes
+record the same occurrence at once, only one of them reopens it and notifies. Filter the list by status
 **Regressions**, **Unresolved**, or **Resolved**.
 
 ```ruby
@@ -441,8 +442,8 @@ end
 
 `after_create` runs once per new fingerprint, not on every repeat, and
 `after_regression` once each time a resolved exception comes back, so neither
-floods you during an error storm. Muted exceptions do not trigger
-`after_regression`.
+floods you during an error storm. Muted and snoozed exceptions do not
+trigger `after_regression`.
 
 ## Cleanup / Retention
 
