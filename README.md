@@ -338,6 +338,28 @@ Press `?` in the dashboard to see all shortcuts:
 
 RailsExceptionLog uses Ransack for filtering and sorting and Pagy for bounded, configurable pagination. Filter, sort, page-size, and page parameters are preserved across Turbo Frame updates.
 
+## Triage workflow
+
+The **Workflow** tab on each exception holds the triage controls. Every
+change is written to the exception's activity log.
+
+| Action | What it does |
+|---|---|
+| **Resolve** / **Reopen** | Marks the exception fixed. If it happens again it reopens as a **Regression** and notifies you (see [Regressions](#regressions)). |
+| **Priority** | Critical, high, medium, or low. Shown as a badge and filterable. |
+| **Assign** | Free-text name or email of the owner. Filterable by assignee. |
+| **Snooze** | Hides it from the **Active** filter for 1 hour, 4 hours, 1 day, or 1 week. |
+| **Mute** | Hides it from **Active** until unmuted, and silences regression notifications. |
+| **Comment** | Free-form notes, listed with the activity log. |
+
+The list's **Status** filter combines these states: **Active** shows exceptions
+that are not resolved, muted, or snoozed. **Unresolved**, **Regressions**,
+**Resolved**, **Muted**, **Snoozed**, and **Unassigned** show each state on its own.
+
+Each change is attributed to `current_user.email` (or `current_user.to_s`)
+when the dashboard's controllers can see a `current_user` method, as they do
+with Devise. Otherwise it is recorded as "anonymous".
+
 ## Notifications
 
 ### Webhooks
