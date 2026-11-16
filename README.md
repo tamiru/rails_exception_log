@@ -37,8 +37,8 @@ resolve them. No external service required.
 - **Security** — Path traversal protection, read-only access
 
 ### 🔔 Notifications
-- **Webhooks** — POST to Slack, Discord, or custom endpoints
-- **Telegram** — Built-in notifier with rate limiting
+- **Webhooks** — POST to Slack, Discord, or custom endpoints on new exceptions and regressions
+- **Callbacks** — `after_create` and `after_regression` hooks for Telegram, email, or any other notifier
 
 ### 🛠️ Developer Experience
 - **Keyboard Shortcuts** — Full keyboard navigation (`/`, `j`, `k`, `Enter`, `?`)
@@ -99,6 +99,11 @@ bin/rails generate rails_exception_log:install
 bin/rails db:migrate
 bin/rails rails_exception_log:doctor
 ```
+
+Updates can add database columns (resolve/regression tracking added three,
+for example); the generator adds the migration and the doctor warns
+until it has run. Until then the dashboard keeps working without the new
+feature.
 
 Restart the app server afterwards. In production, `assets:precompile` runs as
 part of your deploy; if you precompile in development, run it again (the
@@ -256,6 +261,9 @@ Rails.application.config.to_prepare do
     config.after_create = lambda do |exception|
       MyNotifier.alert(exception)
     end
+    config.after_regression = lambda do |exception|  # a resolved exception came back
+      MyNotifier.alert(exception, regression: true)
+    end
 
     config.webhooks = ["https://hooks.slack.com/services/xxx"]
     config.webhook_timeout = 5
@@ -321,7 +329,7 @@ Press `?` in the dashboard to see all shortcuts:
 - **Exception Type** — Select dropdown, auto-submits on change
 - **Source** — Exact controller/action filter
 - **Platform and Priority** — Narrow errors by client and workflow priority
-- **Status and Assignee** — Show active, muted, snoozed, or unassigned errors
+- **Status and Assignee** — Show active, unresolved, regressed, resolved, muted, snoozed, or unassigned errors
 - **Occurrences** — Focus on repeatedly occurring fingerprints
 - **Time Range** — Today, 3 days, 7 days, 30 days
 - **Search** — Search message, exception class, controller, and action with a 400ms debounce
@@ -391,24 +399,28 @@ end
 Upgrading from 2.3.0 or earlier needs one migration; the install generator
 adds it (see [Updating](#updating)).
 
-### Telegram
+### Telegram, email, and other notifiers
 
-Set `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` environment variables:
-
-```bash
-export TELEGRAM_TOKEN="your-bot-token"
-export TELEGRAM_CHAT_ID="your-chat-id"
-```
-
-Configure the notifier:
+There is no built-in Telegram or email notifier; call your own from the
+callbacks. Both receive the `LoggedException` record and, with background
+capture on (the default outside tests), run outside the failing request.
+Errors they raise are logged and never stop the exception from being
+recorded.
 
 ```ruby
 config.after_create = lambda do |exception|
-  RailsExceptionLog::TelegramNotifier.new.notify(exception)
+  TelegramAlert.deliver("#{exception.exception_class}: #{exception.display_message.truncate(200)}")
+end
+
+config.after_regression = lambda do |exception|
+  TelegramAlert.deliver("Regression: #{exception.exception_class} is back after being resolved")
 end
 ```
 
-Rate limiting: 10-minute cooldown per exception class + controller combination.
+`after_create` runs once per new fingerprint, not on every repeat, and
+`after_regression` once each time a resolved exception comes back, so neither
+floods you during an error storm. Muted exceptions do not trigger
+`after_regression`.
 
 ## Cleanup / Retention
 
@@ -467,7 +479,11 @@ Four controllers are included and registered by the engine's entry point:
 
 ## Data storage
 
-The engine creates a `rails_exception_log_exceptions` table with columns for exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, and timestamps.
+The engine creates three tables:
+
+- `rails_exception_log_exceptions` — one row per fingerprint: exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, occurrence count, and workflow state (priority, assignee, snooze, mute, resolved/regressed).
+- `rails_exception_log_comments` — comments and the workflow activity log.
+- `rails_exception_log_webhook_deliveries` — webhook delivery results, when `log_webhook_deliveries` is on.
 
 RailsExceptionLog applies Rails' configured parameter filters plus built-in password, token, authorization, cookie, session, and secret filters before persistence. Application-provided free-form messages can still contain sensitive data, so apply your normal database encryption, retention, backup, and access-control policies.
 
