@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Resolve and regressions** — A Resolve button marks an exception fixed
+  (Reopen undoes it). If a resolved exception happens again it is reopened,
+  flagged as a regression in the list and detail page, and reported to
+  webhooks as an `exception.regressed` event and to the new
+  `config.after_regression` callback (muted and snoozed exceptions reopen quietly). The
+  status filter gains Unresolved, Regressions, and Resolved, and "Active" now
+  leaves out resolved exceptions. Needs a migration: run
+  `bin/rails generate rails_exception_log:install && bin/rails db:migrate`;
+  `rails_exception_log:doctor` warns until it has run.
+- Webhook payloads include `occurrence_count`.
+
+### Fixed
+- Workflow actions (assign, priority, snooze, mute, comment) raised
+  `NoMethodError` when the host controller had no `current_user`; the author
+  is now recorded as "anonymous".
+- The "Active" workflow badge had no background colour.
+- Workflow actions updated the Workflow panel but left the status badges in
+  the detail header showing the old state until a reload.
+- Request and environment values that span several lines lost every line
+  after the first in the key/value tables.
+- `listify` printed an escaped array instead of list items.
+
 ## [2.3.0] - 2026-10-31
 
 ### Changed

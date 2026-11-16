@@ -1,4 +1,4 @@
-<%# Workflow Panel - Assignment, Priority, Snooze, Mute %>
+<%# Workflow Panel - Resolve, Assignment, Priority, Snooze, Mute %>
 <div id="workflow-panel" class="rn-card">
   <div class="p-4" style="border-bottom: 1px solid var(--rn-border-light)">
     <div class="flex items-center gap-2">
@@ -12,7 +12,15 @@
   <div class="p-4 space-y-4">
     <%# Status Badges %>
     <div class="flex flex-wrap gap-2">
-      <% if exception.muted? %>
+      <% if exception.regressed? %>
+        <span class="rn-badge" style="background: var(--rn-danger-light); color: var(--rn-danger)">
+          ↩️ Regression — happened again <%= time_ago_in_words(exception.regressed_at) %> ago
+        </span>
+      <% elsif exception.resolved? %>
+        <span class="rn-badge" style="background: var(--rn-success-light); color: var(--rn-success)">
+          ✔️ Resolved<%= " by #{exception.resolved_by}" if exception.resolved_by.present? && exception.resolved_by != "anonymous" %> <%= time_ago_in_words(exception.resolved_at) %> ago
+        </span>
+      <% elsif exception.muted? %>
         <span class="rn-badge" style="background: var(--rn-bg-secondary); color: var(--rn-text-muted)">
           🔇 Muted
         </span>
@@ -21,7 +29,7 @@
           😴 Snoozed until <%= exception.snoozed_until&.strftime("%b %d %H:%M") %>
         </span>
       <% else %>
-        <span class="rn-badge" style="background: var(--rn-bg-success-subtle); color: var(--rn-success)">
+        <span class="rn-badge" style="background: var(--rn-success-light); color: var(--rn-success)">
           ✅ Active
         </span>
       <% end %>
@@ -38,6 +46,27 @@
         </span>
       <% end %>
     </div>
+
+    <%# Resolve/Reopen %>
+    <% if exception.has_attribute?(:resolved_at) %>
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--rn-text-muted)">Resolution</label>
+        <div class="mt-1">
+          <% if exception.resolved? %>
+            <%= button_to "Reopen", reopen_logged_exception_path(exception),
+              method: :post,
+              class: "rn-btn rn-btn-sm rn-btn-ghost",
+              data: { turbo_stream: true } %>
+          <% else %>
+            <%= button_to "Resolve", resolve_logged_exception_path(exception),
+              method: :post,
+              class: "rn-btn rn-btn-sm rn-btn-primary",
+              data: { turbo_stream: true },
+              title: "Mark as fixed. If it happens again it reopens as a regression." %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
 
     <%# Priority %>
     <div>

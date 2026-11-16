@@ -43,6 +43,12 @@ Rails.application.config.to_prepare do
     #   SlackNotifier.alert(exception)
     # end
 
+    # Called when a resolved exception happens again (a regression).
+    # Webhooks get these too, with event "exception.regressed".
+    # config.after_regression = lambda do |exception|
+    #   SlackNotifier.alert(exception, regression: true)
+    # end
+
     # Webhook URLs for POST notifications
     # config.webhooks = ["https://hooks.slack.com/services/xxx"]
     # config.webhook_timeout = 5

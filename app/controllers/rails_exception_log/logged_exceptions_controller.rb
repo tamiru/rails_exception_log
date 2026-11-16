@@ -163,6 +163,12 @@ module RailsExceptionLog
         exception_feature?(:snoozed_until) ? scope.snoozed : scope
       when "unassigned"
         exception_feature?(:assigned_to) ? scope.unassigned : scope
+      when "unresolved"
+        exception_feature?(:resolved_at) ? scope.unresolved : scope
+      when "resolved"
+        exception_feature?(:resolved_at) ? scope.resolved : scope
+      when "regressed"
+        exception_feature?(:regressed_at) ? scope.regressed : scope
       else
         scope
       end

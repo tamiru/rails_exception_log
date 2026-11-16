@@ -1,12 +1,13 @@
 module RailsExceptionLog
   class WorkflowController < ApplicationController
+    helper LoggedExceptionsHelper
     before_action :find_exception
 
     # POST /rails_exception_log/logged_exceptions/:id/assign
     def assign
       @exception.assign_to(params[:assigned_to], author: current_author)
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.turbo_stream { render turbo_stream: workflow_streams }
         format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Assigned to #{params[:assigned_to]}" }
         format.json { render json: { status: "ok", assigned_to: @exception.assigned_to } }
       end
@@ -16,7 +17,7 @@ module RailsExceptionLog
     def set_priority
       @exception.set_priority(params[:priority], author: current_author)
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.turbo_stream { render turbo_stream: workflow_streams }
         format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Priority set to #{params[:priority]}" }
         format.json { render json: { status: "ok", priority: @exception.priority } }
       end
@@ -27,7 +28,7 @@ module RailsExceptionLog
       duration = parse_duration(params[:duration])
       @exception.snooze(duration, author: current_author)
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.turbo_stream { render turbo_stream: workflow_streams }
         format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Snoozed for #{duration.inspect}" }
         format.json { render json: { status: "ok", snoozed_until: @exception.snoozed_until } }
       end
@@ -37,7 +38,7 @@ module RailsExceptionLog
     def mute
       @exception.mute!(author: current_author)
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.turbo_stream { render turbo_stream: workflow_streams }
         format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Muted" }
         format.json { render json: { status: "ok", muted: @exception.muted } }
       end
@@ -47,9 +48,33 @@ module RailsExceptionLog
     def unmute
       @exception.unmute!(author: current_author)
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.turbo_stream { render turbo_stream: workflow_streams }
         format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Unmuted" }
         format.json { render json: { status: "ok", muted: @exception.muted } }
+      end
+    end
+
+    # POST /rails_exception_log/logged_exceptions/:id/resolve
+    def resolve
+      return resolution_unavailable unless LoggedException.resolution_tracking?
+
+      @exception.resolve!(author: current_author)
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: workflow_streams }
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Resolved" }
+        format.json { render json: { status: "ok", resolved_at: @exception.resolved_at } }
+      end
+    end
+
+    # POST /rails_exception_log/logged_exceptions/:id/reopen
+    def reopen
+      return resolution_unavailable unless LoggedException.resolution_tracking?
+
+      @exception.reopen!(author: current_author)
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: workflow_streams }
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Reopened" }
+        format.json { render json: { status: "ok", resolved_at: nil } }
       end
     end
 
@@ -65,6 +90,24 @@ module RailsExceptionLog
 
     private
 
+    # The workflow panel and the detail header's status badges, which both
+    # show the triage state.
+    def workflow_streams
+      [
+        turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }),
+        turbo_stream.update("exception-status-badges", helpers.status_badges_for(@exception))
+      ]
+    end
+
+    def resolution_unavailable
+      message = "Resolve needs a database update: run bin/rails generate rails_exception_log:install && bin/rails db:migrate"
+      if request.format.json?
+        render json: { status: "error", error: message }, status: :unprocessable_entity
+      else
+        redirect_back fallback_location: logged_exception_path(@exception), alert: message, status: :see_other
+      end
+    end
+
     def find_exception
       @exception = RailsExceptionLog::LoggedException.find(params[:id])
     end
@@ -73,8 +116,8 @@ module RailsExceptionLog
       # Try to get current user from the host app's auth system
       if respond_to?(:current_user, true) && current_user
         current_user.respond_to?(:email) ? current_user.email : current_user.to_s
-      elsif RailsExceptionLog.configuration.current_user_block
-        RailsExceptionLog.configuration.current_user_block.call(self)
+      elsif (block = RailsExceptionLog.configuration.try(:current_user_block))
+        block.call(self)
       else
         "anonymous"
       end

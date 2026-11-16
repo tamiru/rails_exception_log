@@ -41,7 +41,7 @@ module RailsExceptionLog
 
     def listify(text)
       list_items = text.scan(/^\s*\* (.+)/).map { |match| content_tag(:li, match.first) }
-      content_tag(:ul, list_items)
+      content_tag(:ul, safe_join(list_items))
     end
 
     def page_title(text)
@@ -60,12 +60,19 @@ module RailsExceptionLog
     end
 
     # Splits the stored "* Key: value" request/environment text into pairs.
+    # Lines that don't start a new pair belong to the previous value (a value
+    # can contain newlines), so they are appended to it rather than dropped.
     # Returns [] when the text is not in that format.
     def detail_pairs(text)
-      text.to_s.each_line.filter_map do |line|
-        match = line.match(/\A\*\s+(.+?)\s*:\s(.*)\z/m)
-        [match[1].strip, match[2].strip] if match
+      pairs = []
+      text.to_s.each_line do |line|
+        if (match = line.match(/\A\*\s+(.+?)\s*:\s(.*)\z/m))
+          pairs << [match[1].strip, match[2].chomp]
+        elsif pairs.any?
+          pairs.last[1] << "\n" << line.chomp
+        end
       end
+      pairs.each { |pair| pair[1] = pair[1].strip }
     end
 
     # "Foo::Bar::Baz" with line-break opportunities after each "::"; every part is escaped.
@@ -177,7 +184,11 @@ module RailsExceptionLog
     end
 
     def exception_status(exception)
-      if exception.has_attribute?(:muted) && exception.muted?
+      if exception.regressed?
+        ["Regression", "danger"]
+      elsif exception.resolved?
+        ["Resolved", "success"]
+      elsif exception.has_attribute?(:muted) && exception.muted?
         ["Muted", "muted"]
       elsif exception.has_attribute?(:snoozed_until) && exception.snoozed?
         ["Snoozed", "warning"]

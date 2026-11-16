@@ -25,8 +25,9 @@ resolve them. No external service required.
 ### 🔄 Workflow
 - **Assignment** — Assign exceptions to team members
 - **Priority** — Set critical/high/medium/low priority levels
+- **Resolve & Regressions** — Mark an exception fixed; if it happens again it reopens as a regression and notifies you
 - **Snooze** — Temporarily silence exceptions (1h, 4h, 1d, 1w)
-- **Mute** — Permanently silence resolved exceptions
+- **Mute** — Permanently silence exceptions
 - **Comments** — Add notes and status changes
 
 ### 🔍 Source Code Integration
@@ -36,8 +37,8 @@ resolve them. No external service required.
 - **Security** — Path traversal protection, read-only access
 
 ### 🔔 Notifications
-- **Webhooks** — POST to Slack, Discord, or custom endpoints
-- **Telegram** — Built-in notifier with rate limiting
+- **Webhooks** — POST to Slack, Discord, or custom endpoints on new exceptions and regressions
+- **Callbacks** — `after_create` and `after_regression` hooks for Telegram, email, or any other notifier
 
 ### 🛠️ Developer Experience
 - **Keyboard Shortcuts** — Full keyboard navigation (`/`, `j`, `k`, `Enter`, `?`)
@@ -98,6 +99,11 @@ bin/rails generate rails_exception_log:install
 bin/rails db:migrate
 bin/rails rails_exception_log:doctor
 ```
+
+Updates can add database columns (resolve/regression tracking added three,
+for example); the generator adds the migration and the doctor warns
+until it has run. Until then the dashboard keeps working without the new
+feature.
 
 Restart the app server afterwards. In production, `assets:precompile` runs as
 part of your deploy; if you precompile in development, run it again (the
@@ -255,6 +261,9 @@ Rails.application.config.to_prepare do
     config.after_create = lambda do |exception|
       MyNotifier.alert(exception)
     end
+    config.after_regression = lambda do |exception|  # a resolved exception came back
+      MyNotifier.alert(exception, regression: true)
+    end
 
     config.webhooks = ["https://hooks.slack.com/services/xxx"]
     config.webhook_timeout = 5
@@ -320,7 +329,7 @@ Press `?` in the dashboard to see all shortcuts:
 - **Exception Type** — Select dropdown, auto-submits on change
 - **Source** — Exact controller/action filter
 - **Platform and Priority** — Narrow errors by client and workflow priority
-- **Status and Assignee** — Show active, muted, snoozed, or unassigned errors
+- **Status and Assignee** — Show active, unresolved, regressed, resolved, muted, snoozed, or unassigned errors
 - **Occurrences** — Focus on repeatedly occurring fingerprints
 - **Time Range** — Today, 3 days, 7 days, 30 days
 - **Search** — Search message, exception class, controller, and action with a 400ms debounce
@@ -328,6 +337,28 @@ Press `?` in the dashboard to see all shortcuts:
 - **Active Filters** — Pills with one-click dismiss
 
 RailsExceptionLog uses Ransack for filtering and sorting and Pagy for bounded, configurable pagination. Filter, sort, page-size, and page parameters are preserved across Turbo Frame updates.
+
+## Triage workflow
+
+The **Workflow** tab on each exception holds the triage controls. Every
+change is written to the exception's activity log.
+
+| Action | What it does |
+|---|---|
+| **Resolve** / **Reopen** | Marks the exception fixed. If it happens again it reopens as a **Regression** and notifies you (see [Regressions](#regressions)). |
+| **Priority** | Critical, high, medium, or low. Shown as a badge and filterable. |
+| **Assign** | Free-text name or email of the owner. Filterable by assignee. |
+| **Snooze** | Hides it from the **Active** filter, and silences regression notifications, for 1 hour, 4 hours, 1 day, or 1 week. |
+| **Mute** | Hides it from **Active** until unmuted, and silences regression notifications. |
+| **Comment** | Free-form notes, listed with the activity log. |
+
+The list's **Status** filter combines these states: **Active** shows exceptions
+that are not resolved, muted, or snoozed. **Unresolved**, **Regressions**,
+**Resolved**, **Muted**, **Snoozed**, and **Unassigned** show each state on its own.
+
+Each change is attributed to `current_user.email` (or `current_user.to_s`)
+when the dashboard's controllers can see a `current_user` method, as they do
+with Devise. Otherwise it is recorded as "anonymous".
 
 ## Notifications
 
@@ -352,36 +383,67 @@ loopback, link-local, metadata, multicast, unspecified, reserved, and redirect
 destinations are rejected. Logged delivery URLs redact their path and query so
 provider tokens are not persisted.
 
-POST JSON to each URL on every new exception:
+POST JSON to each URL on every new exception (`"event": "exception.logged"`)
+and every regression (`"event": "exception.regressed"`):
 ```json
 {
-  "exception_class": "RuntimeError",
-  "controller_name": "users",
-  "action_name": "show",
-  "message": "Something went wrong",
-  "created_at": "2026-08-22T12:00:00Z",
+  "event": "exception.logged",
+  "timestamp": "2026-08-22T12:00:00Z",
+  "exception": {
+    "id": 42,
+    "class": "RuntimeError",
+    "message": "Something went wrong",
+    "controller": "users",
+    "action": "show",
+    "remote_ip": "203.0.113.7",
+    "user_agent": "Mozilla/5.0 …",
+    "occurrence_count": 1
+  },
   "dashboard_url": "http://localhost:3000/rails_exception_log/logged_exceptions/42"
 }
 ```
 
-### Telegram
+### Regressions
 
-Set `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` environment variables:
-
-```bash
-export TELEGRAM_TOKEN="your-bot-token"
-export TELEGRAM_CHAT_ID="your-chat-id"
-```
-
-Configure the notifier:
+Click **Resolve** on an exception once it is fixed. If the same exception
+(same fingerprint) happens again, it is reopened, flagged as a **Regression**
+in the list and detail page, and you are notified: webhooks receive an
+`exception.regressed` event, and `after_regression` is called. Muted and
+snoozed exceptions are reopened without notifying. If several processes
+record the same occurrence at once, only one of them reopens it and notifies. Filter the list by status
+**Regressions**, **Unresolved**, or **Resolved**.
 
 ```ruby
-config.after_create = lambda do |exception|
-  RailsExceptionLog::TelegramNotifier.new.notify(exception)
+config.after_regression = lambda do |exception|
+  SlackNotifier.alert("Regression: #{exception.exception_class}")
 end
 ```
 
-Rate limiting: 10-minute cooldown per exception class + controller combination.
+Upgrading from 2.3.0 or earlier needs one migration; the install generator
+adds it (see [Updating](#updating)).
+
+### Telegram, email, and other notifiers
+
+There is no built-in Telegram or email notifier; call your own from the
+callbacks. Both receive the `LoggedException` record and, with background
+capture on (the default outside tests), run outside the failing request.
+Errors they raise are logged and never stop the exception from being
+recorded.
+
+```ruby
+config.after_create = lambda do |exception|
+  TelegramAlert.deliver("#{exception.exception_class}: #{exception.display_message.truncate(200)}")
+end
+
+config.after_regression = lambda do |exception|
+  TelegramAlert.deliver("Regression: #{exception.exception_class} is back after being resolved")
+end
+```
+
+`after_create` runs once per new fingerprint, not on every repeat, and
+`after_regression` once each time a resolved exception comes back, so neither
+floods you during an error storm. Muted and snoozed exceptions do not
+trigger `after_regression`.
 
 ## Cleanup / Retention
 
@@ -440,7 +502,11 @@ Four controllers are included and registered by the engine's entry point:
 
 ## Data storage
 
-The engine creates a `rails_exception_log_exceptions` table with columns for exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, and timestamps.
+The engine creates three tables:
+
+- `rails_exception_log_exceptions` — one row per fingerprint: exception class, controller/action, message, backtrace, request, environment, user information, user agent, remote IP, occurrence count, and workflow state (priority, assignee, snooze, mute, resolved/regressed).
+- `rails_exception_log_comments` — comments and the workflow activity log.
+- `rails_exception_log_webhook_deliveries` — webhook delivery results, when `log_webhook_deliveries` is on.
 
 RailsExceptionLog applies Rails' configured parameter filters plus built-in password, token, authorization, cookie, session, and secret filters before persistence. Application-provided free-form messages can still contain sensitive data, so apply your normal database encryption, retention, backup, and access-control policies.
 

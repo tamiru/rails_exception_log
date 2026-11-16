@@ -14,7 +14,7 @@
         <span class="rn-severity-dot rn-severity-<%= severity_for(@exception) %>" aria-hidden="true"></span>
         <h2 class="rn-detail-title"><%= breakable_class_name(@exception.exception_class) %></h2>
         <span class="rn-pill rn-pill-muted" title="Occurrences"><%= pluralize(number_with_delimiter(exception_occurrence_count(@exception)), "occurrence") %></span>
-        <%= status_badges_for(@exception) %>
+        <span id="exception-status-badges" style="display: contents"><%= status_badges_for(@exception) %></span>
       </div>
 
       <% if @exception.display_message.present? %>

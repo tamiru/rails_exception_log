@@ -12,6 +12,8 @@ RailsExceptionLog::Engine.routes.draw do
       post :snooze, to: "workflow#snooze"
       post :mute, to: "workflow#mute"
       post :unmute, to: "workflow#unmute"
+      post :resolve, to: "workflow#resolve"
+      post :reopen, to: "workflow#reopen"
       post :add_comment, to: "workflow#add_comment"
     end
   end
