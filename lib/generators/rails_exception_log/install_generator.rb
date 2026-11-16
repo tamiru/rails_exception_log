@@ -20,6 +20,8 @@ module RailsExceptionLog
       CREATE_MIGRATION = "create_rails_exception_log_tables"
       RENAME_MIGRATION = "rename_rails_nexus_tables_to_rails_exception_log"
       LEGACY_MIGRATION = "create_rails_nexus_tables"
+      # Schema additions since 2.3.0, applied on top of either migration above.
+      RESOLUTION_MIGRATION = "add_resolution_to_rails_exception_log"
       MOUNT = 'mount RailsExceptionLog::Engine, at: "/rails_exception_log"'
       LEGACY_MOUNT = /^(\s*)mount\s+RailsNexus::Engine\b.*$/
       # Code references updated when converting from rails_nexus.
@@ -42,6 +44,12 @@ module RailsExceptionLog
           migration_template "rename_rails_nexus_tables.rb", "db/migrate/#{RENAME_MIGRATION}.rb"
         else
           migration_template "migration.rb", "db/migrate/#{CREATE_MIGRATION}.rb"
+        end
+
+        if migration_exists?(RESOLUTION_MIGRATION)
+          say_status :skip, "resolution migration already present", :yellow
+        else
+          migration_template "#{RESOLUTION_MIGRATION}.rb", "db/migrate/#{RESOLUTION_MIGRATION}.rb"
         end
       end
 

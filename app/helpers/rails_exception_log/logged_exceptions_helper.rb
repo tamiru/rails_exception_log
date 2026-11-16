@@ -184,7 +184,11 @@ module RailsExceptionLog
     end
 
     def exception_status(exception)
-      if exception.has_attribute?(:muted) && exception.muted?
+      if exception.regressed?
+        ["Regression", "danger"]
+      elsif exception.resolved?
+        ["Resolved", "success"]
+      elsif exception.has_attribute?(:muted) && exception.muted?
         ["Muted", "muted"]
       elsif exception.has_attribute?(:snoozed_until) && exception.snoozed?
         ["Snoozed", "warning"]

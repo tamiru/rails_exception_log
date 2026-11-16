@@ -18,26 +18,37 @@ module RailsExceptionLog
         notify_webhooks(exception_record) if config.webhooks.any?
       end
 
+      # Called when a resolved exception happens again and is reopened.
+      # Triggers the after_regression callback and webhooks with the
+      # "exception.regressed" event.
+      def notify_regression(exception_record)
+        config = RailsExceptionLog.configuration
+
+        config.after_regression&.call(exception_record)
+
+        notify_webhooks(exception_record, event: "exception.regressed") if config.webhooks.any?
+      end
+
       private
 
-      def notify_webhooks(exception_record)
+      def notify_webhooks(exception_record, event: "exception.logged")
         config = RailsExceptionLog.configuration
-        payload = build_webhook_payload(exception_record)
+        payload = build_webhook_payload(exception_record, event: event)
 
         config.webhooks.each do |url|
-          deliver_webhook(url, payload, config)
+          deliver_webhook(url, payload, config, event)
         rescue StandardError => e
           Rails.logger.error("[RailsExceptionLog] Webhook delivery failed: #{e.class}")
           log_webhook_delivery(
             url: RailsExceptionLog::WebhookClient.redacted_url(url),
             payload: payload,
             error: "Webhook delivery failed",
-            event_type: "exception.logged"
+            event_type: event
           )
         end
       end
 
-      def deliver_webhook(url, payload, config)
+      def deliver_webhook(url, payload, config, event = "exception.logged")
         logged_url = RailsExceptionLog::WebhookClient.redacted_url(url)
         result = RailsExceptionLog::WebhookClient.deliver(
           url: url,
@@ -52,11 +63,11 @@ module RailsExceptionLog
             payload: payload,
             status_code: result[:status_code],
             response_body: result[:body],
-            event_type: "exception.logged"
+            event_type: event
           )
         else
           Rails.logger.error("[RailsExceptionLog] Webhook delivery failed: #{result[:error]}")
-          log_webhook_delivery(url: logged_url, payload: payload, error: result[:error], event_type: "exception.logged")
+          log_webhook_delivery(url: logged_url, payload: payload, error: result[:error], event_type: event)
         end
       end
 
@@ -84,9 +95,9 @@ module RailsExceptionLog
         Rails.logger.error("[RailsExceptionLog] Failed to log webhook delivery: #{e.message}")
       end
 
-      def build_webhook_payload(exception_record)
+      def build_webhook_payload(exception_record, event: "exception.logged")
         {
-          event: "exception.logged",
+          event: event,
           timestamp: exception_record.created_at.iso8601,
           exception: {
             id: exception_record.id,
@@ -95,7 +106,8 @@ module RailsExceptionLog
             controller: exception_record.controller_name,
             action: exception_record.action_name,
             remote_ip: exception_record.remote_ip,
-            user_agent: exception_record.user_agent
+            user_agent: exception_record.user_agent,
+            occurrence_count: exception_record.occurrence_count
           },
           dashboard_url: dashboard_url(exception_record)
         }

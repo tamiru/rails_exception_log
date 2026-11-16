@@ -25,8 +25,9 @@ resolve them. No external service required.
 ### 🔄 Workflow
 - **Assignment** — Assign exceptions to team members
 - **Priority** — Set critical/high/medium/low priority levels
+- **Resolve & Regressions** — Mark an exception fixed; if it happens again it reopens as a regression and notifies you
 - **Snooze** — Temporarily silence exceptions (1h, 4h, 1d, 1w)
-- **Mute** — Permanently silence resolved exceptions
+- **Mute** — Permanently silence exceptions
 - **Comments** — Add notes and status changes
 
 ### 🔍 Source Code Integration
@@ -352,17 +353,43 @@ loopback, link-local, metadata, multicast, unspecified, reserved, and redirect
 destinations are rejected. Logged delivery URLs redact their path and query so
 provider tokens are not persisted.
 
-POST JSON to each URL on every new exception:
+POST JSON to each URL on every new exception (`"event": "exception.logged"`)
+and every regression (`"event": "exception.regressed"`):
 ```json
 {
-  "exception_class": "RuntimeError",
-  "controller_name": "users",
-  "action_name": "show",
-  "message": "Something went wrong",
-  "created_at": "2026-08-22T12:00:00Z",
+  "event": "exception.logged",
+  "timestamp": "2026-08-22T12:00:00Z",
+  "exception": {
+    "id": 42,
+    "class": "RuntimeError",
+    "message": "Something went wrong",
+    "controller": "users",
+    "action": "show",
+    "remote_ip": "203.0.113.7",
+    "user_agent": "Mozilla/5.0 …",
+    "occurrence_count": 1
+  },
   "dashboard_url": "http://localhost:3000/rails_exception_log/logged_exceptions/42"
 }
 ```
+
+### Regressions
+
+Click **Resolve** on an exception once it is fixed. If the same exception
+(same fingerprint) happens again, it is reopened, flagged as a **Regression**
+in the list and detail page, and you are notified: webhooks receive an
+`exception.regressed` event, and `after_regression` is called. Muted
+exceptions are reopened without notifying. Filter the list by status
+**Regressions**, **Unresolved**, or **Resolved**.
+
+```ruby
+config.after_regression = lambda do |exception|
+  SlackNotifier.alert("Regression: #{exception.exception_class}")
+end
+```
+
+Upgrading from 2.3.0 or earlier needs one migration; the install generator
+adds it (see [Updating](#updating)).
 
 ### Telegram
 

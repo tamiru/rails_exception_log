@@ -76,6 +76,10 @@ module RailsExceptionLog
       if missing.empty?
         count = RailsExceptionLog::LoggedException.count
         add :ok, "Database tables", "#{count} #{count == 1 ? "exception" : "exceptions"} recorded"
+        unless RailsExceptionLog::LoggedException.resolution_tracking?
+          add :warn, "Database columns", "resolve/reopen columns missing (added after 2.3.0)",
+              fix: "bin/rails generate rails_exception_log:install && bin/rails db:migrate"
+        end
       elsif connection.table_exists?(LEGACY_TABLE)
         add :fail, "Database tables", "rails_nexus tables found, rails_exception_log tables missing",
             fix: "bin/rails generate rails_exception_log:install && bin/rails db:migrate"

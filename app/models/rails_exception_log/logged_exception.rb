@@ -24,7 +24,17 @@ module RailsExceptionLog
     scope :by_priority, ->(p) { where(priority: p) }
     scope :assigned_to, ->(user) { where(assigned_to: user) }
     scope :unassigned, -> { where(assigned_to: [nil, ""]) }
-    scope :active, -> { not_muted.not_snoozed }
+    scope :resolved, -> { where.not(resolved_at: nil) }
+    scope :unresolved, -> { where(resolved_at: nil) }
+    scope :regressed, -> { unresolved.where.not(regressed_at: nil) }
+    scope :active, -> { resolution_tracking? ? not_muted.not_snoozed.unresolved : not_muted.not_snoozed }
+
+    # True once the resolution migration (resolved_at, resolved_by,
+    # regressed_at) has run; apps that have not migrated yet keep working
+    # without resolve/reopen.
+    def self.resolution_tracking?
+      column_names.include?("resolved_at")
+    end
 
     def self.ransackable_attributes(_auth_object = nil)
       %w[action_name backtrace cause_chain controller_name created_at device_type environment
@@ -128,10 +138,14 @@ module RailsExceptionLog
         existing = where(fingerprint: attributes["fingerprint"]).order(created_at: :desc).first
 
         record = if existing
-          existing.update!(attributes.except("fingerprint").merge(
+          regression = existing.resolved?
+          updates = attributes.except("fingerprint").merge(
             "occurrence_count" => existing.occurrence_count.to_i + 1,
             "created_at" => captured_at
-          ))
+          )
+          updates.merge!("resolved_at" => nil, "resolved_by" => nil, "regressed_at" => captured_at) if regression
+          existing.update!(updates)
+          existing.record_regression if regression
           existing
         else
           create!(attributes.merge("occurrence_count" => 1, "created_at" => captured_at))
@@ -267,7 +281,9 @@ module RailsExceptionLog
       badges = []
       badges << { label: priority.to_s.capitalize, tone: PRIORITY_TONES.fetch(priority.to_s, "muted") } if priority.present?
       badges << { label: "@#{assigned_to}", tone: "info" } if assigned_to.present?
-      badges << { label: "Muted", tone: "muted" } if muted?
+      badges << { label: "Regression", tone: "danger" } if regressed?
+    badges << { label: "Resolved", tone: "success" } if resolved?
+    badges << { label: "Muted", tone: "muted" } if muted?
       badges << { label: "Snoozed", tone: "muted" } if snoozed?
       badges
     end
@@ -1053,14 +1069,44 @@ module RailsExceptionLog
       comments.create!(author: author, body: "Unmuted — notifications restored", comment_type: "status_change")
     end
 
+    # Mark as fixed. If it happens again it is reopened as a regression.
+    def resolve!(author: "system")
+      update!(resolved_at: Time.current, resolved_by: author, regressed_at: nil)
+      comments.create!(author: author, body: "Resolved", comment_type: "status_change")
+    end
+
+    # Undo a resolve by hand.
+    def reopen!(author: "system")
+      update!(resolved_at: nil, resolved_by: nil)
+      comments.create!(author: author, body: "Reopened", comment_type: "status_change")
+    end
+
+    def resolved?
+      has_attribute?(:resolved_at) && resolved_at.present?
+    end
+
+    # Happened again after it was resolved, and has not been resolved since.
+    def regressed?
+      has_attribute?(:regressed_at) && regressed_at.present? && !resolved?
+    end
+
+    # Called by persist_capture once a resolved exception has been reopened.
+    # Muted exceptions are reopened quietly.
+    def record_regression
+      comments.create!(author: "system", body: "Regressed — happened again after being resolved", comment_type: "status_change")
+      RailsExceptionLog::Notifications.notify_regression(self) unless muted?
+    rescue StandardError => e
+      Rails.logger.error("[RailsExceptionLog] Regression handling failed: #{e.class}: #{e.message}")
+    end
+
     # Check if currently snoozed
     def snoozed?
       snoozed_until.present? && snoozed_until > Time.current
     end
 
-    # Check if active (not muted, not snoozed)
+    # Check if active (not muted, snoozed, or resolved)
     def active?
-      !muted? && !snoozed?
+      !muted? && !snoozed? && !resolved?
     end
 
     # Add a comment
@@ -1075,6 +1121,8 @@ module RailsExceptionLog
         muted: muted.count,
         snoozed: snoozed.count,
         active: active.count,
+        resolved: resolution_tracking? ? resolved.count : 0,
+        regressed: resolution_tracking? ? regressed.count : 0,
         unassigned: unassigned.count,
         by_priority: %w[critical high medium low].map { |p| [p, by_priority(p).count] }.to_h,
         recently_assigned: where("assigned_at > ?", 7.days.ago).count

@@ -85,7 +85,15 @@ module RailsExceptionLog
     #   config.after_create = ->(exception) { MyNotifier.alert(exception) }
     attr_accessor :after_create
 
-    # Webhook URLs called on each new exception (POST with JSON body).
+    # Proc called with the LoggedException record when an exception that was
+    # resolved happens again (it is reopened and flagged as a regression).
+    # Not called for muted exceptions. Webhooks also receive these, with
+    # event "exception.regressed".
+    # Example:
+    #   config.after_regression = ->(exception) { MyNotifier.alert(exception, regression: true) }
+    attr_accessor :after_regression
+
+    # Webhook URLs called on each new exception and each regression (POST with JSON body).
     # Example:
     #   config.webhooks = ["https://hooks.slack.com/services/xxx"]
     attr_accessor :webhooks
@@ -240,6 +248,7 @@ module RailsExceptionLog
       @auth_block = nil
       @exception_data = nil
       @after_create = nil
+      @after_regression = nil
       @per_page = 30
       @enabled = true
 

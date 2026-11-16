@@ -53,6 +53,30 @@ module RailsExceptionLog
       end
     end
 
+    # POST /rails_exception_log/logged_exceptions/:id/resolve
+    def resolve
+      return resolution_unavailable unless LoggedException.resolution_tracking?
+
+      @exception.resolve!(author: current_author)
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Resolved" }
+        format.json { render json: { status: "ok", resolved_at: @exception.resolved_at } }
+      end
+    end
+
+    # POST /rails_exception_log/logged_exceptions/:id/reopen
+    def reopen
+      return resolution_unavailable unless LoggedException.resolution_tracking?
+
+      @exception.reopen!(author: current_author)
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel", locals: { exception: @exception }) }
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: "Reopened" }
+        format.json { render json: { status: "ok", resolved_at: nil } }
+      end
+    end
+
     # POST /rails_exception_log/logged_exceptions/:id/comment
     def add_comment
       @exception.add_comment(author: current_author, body: params[:body], comment_type: params[:comment_type] || "comment")
@@ -65,6 +89,14 @@ module RailsExceptionLog
 
     private
 
+    def resolution_unavailable
+      message = "Resolve needs a database update: run bin/rails generate rails_exception_log:install && bin/rails db:migrate"
+      respond_to do |format|
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), alert: message }
+        format.any { render json: { status: "error", error: message }, status: :unprocessable_entity }
+      end
+    end
+
     def find_exception
       @exception = RailsExceptionLog::LoggedException.find(params[:id])
     end
@@ -73,8 +105,8 @@ module RailsExceptionLog
       # Try to get current user from the host app's auth system
       if respond_to?(:current_user, true) && current_user
         current_user.respond_to?(:email) ? current_user.email : current_user.to_s
-      elsif RailsExceptionLog.configuration.current_user_block
-        RailsExceptionLog.configuration.current_user_block.call(self)
+      elsif (block = RailsExceptionLog.configuration.try(:current_user_block))
+        block.call(self)
       else
         "anonymous"
       end

@@ -80,11 +80,11 @@
         <% if exception_feature?(:muted) || exception_feature?(:snoozed_until) || exception_feature?(:assigned_to) %>
           <div class="rn-filter-group">
             <label>Status</label>
+            <% status_options = [["Any status", ""], ["Active", "active"]] %>
+            <% status_options += [["Unresolved", "unresolved"], ["Regressions", "regressed"], ["Resolved", "resolved"]] if exception_feature?(:resolved_at) %>
+            <% status_options += [["Muted", "muted"], ["Snoozed", "snoozed"], ["Unassigned", "unassigned"]] %>
             <%= select_tag :status_filter,
-              options_for_select([
-                ["Any status", ""], ["Active", "active"], ["Muted", "muted"],
-                ["Snoozed", "snoozed"], ["Unassigned", "unassigned"]
-              ], params[:status_filter]),
+              options_for_select(status_options, params[:status_filter]),
               class: "rn-select", data: { action: "change->rails_exception_log#submit" } %>
           </div>
         <% end %>

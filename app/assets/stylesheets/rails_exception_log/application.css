@@ -2387,6 +2387,7 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
   white-space: nowrap;
 }
 .rn-pill-danger { background: var(--rn-danger-light); color: var(--rn-danger); border-color: var(--rn-danger-ring); }
+.rn-pill-success { background: var(--rn-success-light); color: var(--rn-success); }
 .rn-pill-warning { background: var(--rn-warning-light); color: var(--rn-warning-text); }
 .rn-pill-info { background: var(--rn-info-light); color: var(--rn-info); }
 .rn-pill-muted { background: var(--rn-bg-secondary); color: var(--rn-text-secondary); border-color: var(--rn-border); }

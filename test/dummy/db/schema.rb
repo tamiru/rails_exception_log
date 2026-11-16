@@ -48,6 +48,9 @@ ActiveRecord::Schema[8.0].define(version: 2024_03_30_122312) do
     t.boolean "muted", default: false
     t.datetime "muted_at"
     t.integer "comments_count", default: 0
+    t.datetime "resolved_at"
+    t.string "resolved_by"
+    t.datetime "regressed_at"
 
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -61,6 +64,7 @@ ActiveRecord::Schema[8.0].define(version: 2024_03_30_122312) do
     t.index ["platform", "exception_class"], name: "index_rel_exceptions_on_platform_and_class"
     t.index ["platform"], name: "index_rails_exception_log_exceptions_on_platform"
     t.index ["priority"], name: "index_rails_exception_log_exceptions_on_priority"
+    t.index ["resolved_at"], name: "index_rails_exception_log_exceptions_on_resolved_at"
     t.index ["user_id"], name: "index_rails_exception_log_exceptions_on_user_id"
     t.index ["controller_name", "action_name"], name: "index_rel_exceptions_on_controller_and_action"
   end

@@ -37,6 +37,29 @@ class RailsExceptionLog::Generators::InstallGeneratorTest < Rails::Generators::T
     assert_file "config/routes.rb", %r{mount RailsExceptionLog::Engine, at: "/rails_exception_log"}
   end
 
+  test "first install also adds the resolution columns, after the tables are created" do
+    run_generator
+
+    assert_migration "db/migrate/add_resolution_to_rails_exception_log.rb" do |content|
+      assert_match(/^class AddResolutionToRailsExceptionLog < ActiveRecord::Migration\[\d+\.\d+\]$/, content)
+      assert_match(/add_column TABLE, :resolved_at, :datetime unless column_exists\?/, content)
+      assert_nothing_raised { RubyVM::InstructionSequence.compile(content) }
+    end
+    create = File.basename(Dir[path("db/migrate/*_create_rails_exception_log_tables.rb")].first).to_i
+    resolution = File.basename(Dir[path("db/migrate/*_add_resolution_to_rails_exception_log.rb")].first).to_i
+    assert_operator resolution, :>, create
+  end
+
+  test "updating an existing install adds only the resolution migration" do
+    write "db/migrate/20240101000000_create_rails_exception_log_tables.rb", "# existing\n"
+    write "config/initializers/rails_exception_log.rb", "# my settings\n"
+
+    run_generator
+
+    assert_migration "db/migrate/add_resolution_to_rails_exception_log.rb"
+    assert_equal 1, Dir[path("db/migrate/*_create_rails_exception_log_tables.rb")].size
+  end
+
   test "does not touch controllers: the middleware records request errors" do
     run_generator
 
@@ -52,6 +75,7 @@ class RailsExceptionLog::Generators::InstallGeneratorTest < Rails::Generators::T
     output = run_generator
 
     assert_equal 1, Dir[path("db/migrate/*_create_rails_exception_log_tables.rb")].size
+    assert_equal 1, Dir[path("db/migrate/*_add_resolution_to_rails_exception_log.rb")].size
     assert_equal 1, File.read(path("config/routes.rb")).scan("RailsExceptionLog::Engine").size
     assert_equal initializer, File.read(path("config/initializers/rails_exception_log.rb"))
     assert_match(/skip.*migration already present/, output)
