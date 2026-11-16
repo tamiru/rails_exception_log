@@ -41,7 +41,7 @@ module RailsExceptionLog
 
     def listify(text)
       list_items = text.scan(/^\s*\* (.+)/).map { |match| content_tag(:li, match.first) }
-      content_tag(:ul, list_items)
+      content_tag(:ul, safe_join(list_items))
     end
 
     def page_title(text)
