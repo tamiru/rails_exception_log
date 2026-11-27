@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-27
+
 **Upgrading:** run `bin/rails generate rails_exception_log:install` and
 `bin/rails db:migrate` to add the occurrence history table. Without it the
 dashboard works as before, minus the 7-day trend.
