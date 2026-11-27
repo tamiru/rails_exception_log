@@ -204,8 +204,39 @@ module RailsExceptionLog
       filters
     end
 
+    TREND_HEIGHT = 20
+    TREND_BAR = 6
+    TREND_GAP = 2
+
+    # A small bar chart of one exception's occurrences per day, oldest first,
+    # with today's bar in the accent colour. Days without any keep a one
+    # pixel stub so the week's shape stays readable. Exceptions that predate
+    # the history table have no series and show a dash.
+    def trend_sparkline(counts)
+      if counts.blank? || counts.sum.zero?
+        return content_tag(:span, "—", class: "rn-trend-empty", title: "No occurrences recorded in the last 7 days")
+      end
+
+      label = "#{pluralize(counts.sum, 'occurrence')} in the last #{counts.size} days"
+      width = (counts.size * (TREND_BAR + TREND_GAP)) - TREND_GAP
+      tag.svg(class: "rn-trend", width: width, height: TREND_HEIGHT, viewBox: "0 0 #{width} #{TREND_HEIGHT}",
+              role: "img", aria: { label: label }) do
+        safe_join([tag.title("#{label} (per day: #{counts.join(', ')})"), *trend_bars(counts)])
+      end
+    end
+
     def quick_filter_value(chip)
       chip[:group] == :q ? params.dig(:q, chip[:key]).to_s : params[chip[:key]].to_s
+    end
+
+    def trend_bars(counts)
+      peak = counts.max.to_f
+      counts.each_with_index.map do |count, day|
+        height = count.zero? ? 1 : [(count / peak * TREND_HEIGHT).ceil, 2].max
+        classes = ["rn-trend-bar", ("is-today" if day == counts.size - 1), ("is-zero" if count.zero?)].compact
+        tag.rect(x: day * (TREND_BAR + TREND_GAP), y: TREND_HEIGHT - height,
+                 width: TREND_BAR, height: height, rx: 1, class: classes.join(" "))
+      end
     end
 
     def exception_occurrence_count(exception)

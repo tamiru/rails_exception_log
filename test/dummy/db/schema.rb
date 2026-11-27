@@ -5,7 +5,7 @@
 # This file is auto-generated from the current state of the database. It's strongly
 # recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2024_03_30_122312) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_27_000000) do
   create_table "rails_exception_log_exceptions", force: :cascade do |t|
     # Core exception data
     t.string "exception_class"
@@ -93,5 +93,12 @@ ActiveRecord::Schema[8.0].define(version: 2024_03_30_122312) do
     t.index ["created_at"], name: "index_rails_exception_log_webhook_deliveries_on_created_at"
     t.index ["status"], name: "index_rails_exception_log_webhook_deliveries_on_status"
     t.index ["url"], name: "index_rails_exception_log_webhook_deliveries_on_url"
+  end
+
+  create_table "rails_exception_log_occurrences", force: :cascade do |t|
+    t.bigint "logged_exception_id", null: false
+    t.datetime "occurred_at", null: false
+    t.index ["logged_exception_id", "occurred_at"], name: "index_rel_occurrences_on_exception_and_time"
+    t.index ["occurred_at"], name: "index_rails_exception_log_occurrences_on_occurred_at"
   end
 end

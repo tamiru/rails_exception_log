@@ -261,6 +261,17 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select "#rn-bulk-form button[name='bulk_action']", minimum: 4
   end
 
+  test "each row shows its last seven days of occurrences" do
+    @exception.occurrences.create!(occurred_at: 1.hour.ago)
+    @exception.occurrences.create!(occurred_at: 2.hours.ago)
+
+    get "/rails_exception_log/logged_exceptions"
+
+    assert_select "th.rn-col-trend", text: "7 days"
+    assert_select "td.rn-col-trend svg.rn-trend[role='img'][aria-label='2 occurrences in the last 7 days']"
+    assert_select "td.rn-col-trend svg rect.rn-trend-bar", count: 7
+  end
+
   test "deleting from the detail page returns to the filtered list" do
     delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
 

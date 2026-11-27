@@ -15,6 +15,7 @@ module RailsExceptionLog
 
     # ─── Associations ──────────────────────────────────────────────
     has_many :comments, class_name: "RailsExceptionLog::Comment", dependent: :destroy
+    has_many :occurrences, class_name: "RailsExceptionLog::Occurrence", dependent: :delete_all
 
     # ─── Scopes ────────────────────────────────────────────────────
     scope :muted, -> { where(muted: true) }
@@ -136,8 +137,34 @@ module RailsExceptionLog
         else
           create!(attributes.merge("occurrence_count" => 1, "created_at" => captured_at))
         end
+        record_occurrence(record, captured_at)
         RailsExceptionLog::StormProtection.record_captured if defined?(RailsExceptionLog::StormProtection)
         record
+      end
+
+      # Keeps the per-occurrence history behind the list's trend, and trims
+      # this exception's entries past the retention window while it is here.
+      # History is a nicety: failing to write it never loses the capture.
+      def record_occurrence(record, occurred_at)
+        return unless RailsExceptionLog::Occurrence.available?
+
+        record.occurrences.create!(occurred_at: occurred_at)
+        record.occurrences.where(occurred_at: ...RailsExceptionLog::Occurrence::RETENTION.ago).delete_all
+      rescue StandardError => error
+        Rails.logger.warn("[RailsExceptionLog] Could not record occurrence history: #{error.class}: #{error.message}")
+      end
+
+      # delete_all for exceptions, taking their comments and occurrence
+      # history with them (delete_all skips dependent: callbacks).
+      def delete_with_history(scope = all)
+        ids = scope.pluck(:id)
+        return 0 if ids.empty?
+
+        transaction do
+          RailsExceptionLog::Comment.where(logged_exception_id: ids).delete_all
+          RailsExceptionLog::Occurrence.where(logged_exception_id: ids).delete_all if RailsExceptionLog::Occurrence.available?
+          where(id: ids).delete_all
+        end
       end
 
       def host_name

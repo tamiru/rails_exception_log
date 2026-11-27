@@ -55,7 +55,7 @@ module RailsExceptionLog
       else
         ransack_search.result(distinct: false)
       end
-      exceptions.delete_all
+      LoggedException.delete_with_history(exceptions)
 
       load_exception_index
 
@@ -66,7 +66,7 @@ module RailsExceptionLog
     end
 
     def clear
-      LoggedException.delete_all
+      LoggedException.delete_with_history
 
       load_exception_index
 
@@ -101,6 +101,8 @@ module RailsExceptionLog
       @q = ransack_search
       load_stats if RailsExceptionLog.configuration.show_stats
       @pagy, @exceptions = rails_exception_log_pagy(@q.result(distinct: true), limit: page_size)
+      @show_trends = Occurrence.available?
+      @trends = Occurrence.daily_counts(@exceptions.map(&:id))
     end
 
     def ransack_search

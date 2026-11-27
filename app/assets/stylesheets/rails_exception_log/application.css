@@ -2624,3 +2624,34 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
   }
   .rn-bulk-actions { margin-left: 0; }
 }
+
+/* ─── 7-day trend ───────────────────────────────────────────── */
+.rn-exceptions-table .rn-col-trend { width: 4.5rem; }
+.rn-exceptions-table td.rn-col-trend { padding-top: 0.875rem; }
+.rn-trend { display: block; overflow: visible; }
+.rn-trend-bar { fill: var(--rn-text-muted); opacity: 0.55; }
+.rn-trend-bar.is-today { fill: var(--rn-primary); opacity: 1; }
+.rn-trend-bar.is-zero { fill: var(--rn-border); opacity: 1; }
+.rn-trend-empty { color: var(--rn-text-muted); font-size: 0.75rem; }
+
+/* Card layout: the trend sits with the count and time. */
+@media (max-width: 1100px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "select exception exception exception actions"
+      ". message message message message"
+      ". source trend count time";
+  }
+  .rn-exceptions-table .rn-col-trend { grid-area: trend; align-self: center; padding: 0; }
+}
+@media (max-width: 639px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "select exception actions actions"
+      ". message message message"
+      ". source source source"
+      ". trend count time";
+  }
+}

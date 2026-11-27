@@ -155,6 +155,9 @@
             <% else %>
               <th class="rn-col-count">Count</th>
             <% end %>
+            <% if @show_trends %>
+              <th class="rn-col-trend">7 days</th>
+            <% end %>
             <%= content_tag :th, sort_link(@q, :created_at, "Last Seen", hide_indicator: true),
                         class: "rn-col-time #{sort_header_class(:created_at)}",
                         aria: { sort: sort_header_aria(:created_at) } %>
@@ -229,6 +232,11 @@
               <td class="rn-col-count">
                 <span class="rn-occurrence-count" title="<%= pluralize(exception_occurrence_count(exception), 'occurrence') %>"><%= number_with_delimiter(exception_occurrence_count(exception)) %></span>
               </td>
+
+              <%# Occurrences per day over the last week %>
+              <% if @show_trends %>
+                <td class="rn-col-trend"><%= trend_sparkline(@trends[exception.id]) %></td>
+              <% end %>
 
               <%# Time (relative) %>
               <td class="rn-col-time rn-date">

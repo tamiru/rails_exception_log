@@ -20,6 +20,7 @@ module RailsExceptionLog
       CREATE_MIGRATION = "create_rails_exception_log_tables"
       RENAME_MIGRATION = "rename_rails_nexus_tables_to_rails_exception_log"
       LEGACY_MIGRATION = "create_rails_nexus_tables"
+      OCCURRENCES_MIGRATION = "create_rails_exception_log_occurrences"
       MOUNT = 'mount RailsExceptionLog::Engine, at: "/rails_exception_log"'
       LEGACY_MOUNT = /^(\s*)mount\s+RailsNexus::Engine\b.*$/
       # Code references updated when converting from rails_nexus.
@@ -42,6 +43,16 @@ module RailsExceptionLog
           migration_template "rename_rails_nexus_tables.rb", "db/migrate/#{RENAME_MIGRATION}.rb"
         else
           migration_template "migration.rb", "db/migrate/#{CREATE_MIGRATION}.rb"
+        end
+      end
+
+      # Added in 2.4.0 as its own migration, so re-running the generator after
+      # an update gives existing apps the history table too.
+      def create_occurrences_migration
+        if migration_exists?(OCCURRENCES_MIGRATION)
+          say_status :skip, "occurrence history migration already present", :yellow
+        else
+          migration_template "create_occurrences.rb", "db/migrate/#{OCCURRENCES_MIGRATION}.rb"
         end
       end
 

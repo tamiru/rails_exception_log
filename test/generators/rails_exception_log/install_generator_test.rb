@@ -37,6 +37,19 @@ class RailsExceptionLog::Generators::InstallGeneratorTest < Rails::Generators::T
     assert_file "config/routes.rb", %r{mount RailsExceptionLog::Engine, at: "/rails_exception_log"}
   end
 
+  test "adds the occurrence history migration, once, also to existing installs" do
+    run_generator
+
+    assert_migration "db/migrate/create_rails_exception_log_occurrences.rb" do |content|
+      assert_match(/create_table :rails_exception_log_occurrences/, content)
+      assert_nothing_raised { RubyVM::InstructionSequence.compile(content) }
+    end
+
+    output = run_generator
+    assert_equal 1, Dir[path("db/migrate/*_create_rails_exception_log_occurrences.rb")].size
+    assert_match(/skip.*occurrence history migration already present/, output)
+  end
+
   test "does not touch controllers: the middleware records request errors" do
     run_generator
 
