@@ -149,6 +149,7 @@ module RailsExceptionLog
       end
 
       {
+        "exception_names_filter" => "Class",
         "controller_actions_filter" => "Source",
         "status_filter" => "Status",
         "query" => "Search"
@@ -157,6 +158,49 @@ module RailsExceptionLog
       end
 
       pills
+    end
+
+    # Statuses for the filter select; resolution states only once the app
+    # has the columns for them.
+    def status_filter_options
+      options = [["Any status", ""], ["Active", "active"]]
+      if exception_feature?(:resolved_at)
+        options += [["Unresolved", "unresolved"], ["Resolved", "resolved"], ["Regressed", "regressed"]]
+      end
+      options + [["Muted", "muted"], ["Snoozed", "snoozed"], ["Unassigned", "unassigned"]]
+    end
+
+    # One-click shortcuts for the filters people reach for most, so they do
+    # not have to open the filter panel. Each chip is shaped like a filter
+    # pill, so the same helper removes it; chips for columns the host app's
+    # table lacks are left out.
+    def quick_filters
+      chips = [{ label: "Today", key: "date_ranges_filter", value: "1" }]
+      if exception_feature?(:priority)
+        chips << { label: "Critical", group: :q, key: "priority_eq", value: "critical" }
+      end
+      if exception_feature?(:assigned_to)
+        chips << { label: "Unassigned", key: "status_filter", value: "unassigned" }
+      end
+      chips << { label: "Regressed", key: "status_filter", value: "regressed" } if exception_feature?(:regressed_at)
+      chips << { label: "Muted", key: "status_filter", value: "muted" } if exception_feature?(:muted)
+
+      chips.each { |chip| chip[:active] = quick_filter_value(chip) == chip[:value] }
+    end
+
+    # A chip turns its filter on, or off again when it is already on, and
+    # keeps every other filter (but not the page, which may no longer exist).
+    def quick_filter_params(chip)
+      filters = filter_params_without(chip)
+      filters.delete("page")
+      return filters if chip[:active]
+
+      if chip[:group] == :q
+        filters["q"] = (filters["q"] || {}).merge(chip[:key] => chip[:value])
+      else
+        filters[chip[:key]] = chip[:value]
+      end
+      filters
     end
 
     def filter_params_without(pill)
@@ -172,6 +216,41 @@ module RailsExceptionLog
       filters
     end
 
+    TREND_HEIGHT = 20
+    TREND_BAR = 6
+    TREND_GAP = 2
+
+    # A small bar chart of one exception's occurrences per day, oldest first,
+    # with today's bar in the accent colour. Days without any keep a one
+    # pixel stub so the week's shape stays readable. Exceptions that predate
+    # the history table have no series and show a dash.
+    def trend_sparkline(counts)
+      if counts.blank? || counts.sum.zero?
+        return content_tag(:span, "—", class: "rn-trend-empty", title: "No occurrences recorded in the last 7 days")
+      end
+
+      label = "#{pluralize(counts.sum, 'occurrence')} in the last #{counts.size} days"
+      width = (counts.size * (TREND_BAR + TREND_GAP)) - TREND_GAP
+      tag.svg(class: "rn-trend", width: width, height: TREND_HEIGHT, viewBox: "0 0 #{width} #{TREND_HEIGHT}",
+              role: "img", aria: { label: label }) do
+        safe_join([tag.title("#{label} (per day: #{counts.join(', ')})"), *trend_bars(counts)])
+      end
+    end
+
+    def quick_filter_value(chip)
+      chip[:group] == :q ? params.dig(:q, chip[:key]).to_s : params[chip[:key]].to_s
+    end
+
+    def trend_bars(counts)
+      peak = counts.max.to_f
+      counts.each_with_index.map do |count, day|
+        height = count.zero? ? 1 : [(count / peak * TREND_HEIGHT).ceil, 2].max
+        classes = ["rn-trend-bar", ("is-today" if day == counts.size - 1), ("is-zero" if count.zero?)].compact
+        tag.rect(x: day * (TREND_BAR + TREND_GAP), y: TREND_HEIGHT - height,
+                 width: TREND_BAR, height: height, rx: 1, class: classes.join(" "))
+      end
+    end
+
     def exception_occurrence_count(exception)
       exception.respond_to?(:occurrence_count) ? (exception.occurrence_count || 1) : 1
     end
@@ -184,6 +263,15 @@ module RailsExceptionLog
       else
         ["Active", "success"]
       end
+    end
+
+    # Tells screen readers which column the list is sorted by; the arrow is
+    # drawn by CSS from sort_header_class, so it is not announced twice.
+    def sort_header_aria(attribute)
+      sort = @q&.sorts&.find { |item| item.name == attribute.to_s }
+      return unless sort
+
+      sort.dir == "asc" ? "ascending" : "descending"
     end
 
     def sort_header_class(attribute)

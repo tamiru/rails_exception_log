@@ -14,7 +14,7 @@ class RailsExceptionLog::Generators::CustomizeGeneratorTest < Rails::Generators:
     run_generator ["--views-only"]
 
     engine_views = RailsExceptionLog::Engine.root.join("app/views/rails_exception_log/logged_exceptions")
-    %w[index.html.erb _exceptions.html.erb _show.html.erb].each do |view|
+    %w[index.html.erb _exceptions.html.erb show.html.erb _show.html.erb _shortcuts.html.erb].each do |view|
       assert_file "app/views/rails_exception_log/logged_exceptions/#{view}", File.read(engine_views.join(view))
     end
   end

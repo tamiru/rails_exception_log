@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-27
+
+**Upgrading:** run `bin/rails generate rails_exception_log:install` and
+`bin/rails db:migrate`. This adds two migrations: the occurrence history
+table and the resolution columns. Without them the dashboard works as
+before, minus the 7-day trend and Resolve.
+
+### Added
+- **Resolve, with automatic regressions** — Mark an exception resolved from
+  its page or in bulk. If it is captured again it reopens itself, is flagged
+  **Regressed**, and gets an audit comment, so a fix that did not hold is
+  visible. New statuses to filter by: Unresolved, Resolved, Regressed (and a
+  Regressed chip); "Active" no longer includes resolved exceptions.
+- **Quick filter chips** — Today, Critical, Unassigned and Muted above the
+  table, one click to switch on or off, keeping the other filters.
+- **Bulk actions** — A checkbox on each row (or `x` on the highlighted row)
+  and a bar to mute, unmute, set priority, assign or delete the ticked rows.
+  Each change gets the same audit comment as a single one.
+- **Occurrence history and 7-day trend** — Every capture is now recorded
+  with its time (kept 30 days), and each row shows a small bar chart of the
+  last 7 days, today's bar highlighted.
+- **Group by class** — A Rows / By class switch shows one row per exception
+  class with its total count, distinct errors, sources, trend and last
+  seen; clicking one lists that class's exceptions.
+
+### Changed
+- **Separate list and detail pages** — Clicking a row (or pressing Enter on
+  the selected row) opens the exception on its own page instead of a panel
+  above the table. The exception name and the open icon are real links, so
+  Cmd/Ctrl-click and middle-click open a new tab.
+- **Detail page** — Breadcrumbs, a Back button and previous/next arrows in the
+  header all keep the list's filters. The tab bar stays pinned while you
+  scroll, the open tab is kept in the URL (`#backtrace`) so a reload or a
+  shared link lands on it, and the Workflow tab is always available.
+- **Keyboard** — On the detail page, `p`/`n` step through exceptions, `1`–`9`
+  switch tabs and `Esc` goes back to the list. The shortcuts dialog lists only
+  the keys that apply to the current page.
+- Deleting from the detail page returns to the filtered list.
+- **Exceptions table** — One sort arrow on the sorted column (announced to
+  screen readers through `aria-sort`), styled page links, and the rows-per-page
+  buttons always show the size in effect, including the default of 30. Source
+  shows the controller above the action instead of cutting both off, numbers
+  use tabular figures, and "Last seen" shows the full time on hover.
+
+### Fixed
+- The customize generator handed out outdated sidebar and theme controllers.
+- Assigning, muting, setting priority or commenting raised an error in apps
+  without a `current_user` method.
+- "Delete all", "Clear" and the retention cleanup left comments behind (or
+  failed on the comments foreign key); they now remove them, and history.
+- A white line under the table header in dark mode, and the message cell
+  sitting lower than the rest of its row.
+- The Cause Chain, Breadcrumbs, System Health and Workflow tabs rendered
+  outside the padded detail body.
+- Deleting a row from the list no longer risks following the link as a plain
+  GET, because row links are no longer cut off from Turbo.
+
 ## [2.3.0] - 2026-10-31
 
 ### Changed

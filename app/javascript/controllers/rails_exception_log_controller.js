@@ -1,7 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["activity", "shortcutsDialog", "tabs", "tabContent", "exceptionList", "backtraceHidden", "backtraceContent"]
+  static targets = [
+    "activity", "shortcutsDialog", "tabs", "tabContent", "exceptionList", "backtraceHidden", "backtraceContent",
+    "bulkBar", "bulkCount", "selectAll", "rowCheckbox"
+  ]
   static values = { shortcuts: Boolean }
 
   connect() {
@@ -77,16 +80,24 @@ export default class extends Controller {
         event.preventDefault()
         this.toggleTheme()
         break
+      case "x":
+        event.preventDefault()
+        this.toggleSelectedRowCheckbox()
+        break
       case "Escape":
         event.preventDefault()
-        this.closeDetails(event)
-        this.closeShortcuts()
+        if (this.shortcutsOpen()) {
+          this.closeShortcuts()
+        } else {
+          this.leaveDetails()
+        }
         break
       case "?":
         event.preventDefault()
         this.toggleShortcuts()
         break
       case "1": case "2": case "3": case "4": case "5":
+      case "6": case "7": case "8": case "9":
         event.preventDefault()
         this.switchTabByIndex(parseInt(event.key) - 1)
         break
@@ -140,39 +151,44 @@ export default class extends Controller {
     this.refreshRows()
     if (this.selectedIndex < 0 || this.selectedIndex >= this.rows.length) return
 
-    const row = this.rows[this.selectedIndex]
-    const url = row.dataset.url
-    if (url) {
-      // Fetch and load into the detail panel
-      this.selectRow({ currentTarget: row, preventDefault: () => {} })
-    }
+    const url = this.rows[this.selectedIndex].dataset.url
+    if (url) this.visit(url)
   }
 
   // ─── Row Selection ────────────────────────────────────────
 
+  /**
+   * Opens the clicked row's exception on its own detail page. Clicks on a
+   * link or button inside the row are left to that control, and a modifier
+   * click opens the page in a new tab, as it would for a plain link.
+   */
   selectRow(event) {
-    event.preventDefault()
-    const row = event.currentTarget
-    const url = row.dataset.url
-    if (!url) return
+    if (event.target?.closest?.("a, button, input, select, textarea, label")) return
 
-    // Highlight selected row
-    this.refreshRows()
-    this.rows.forEach(r => r.classList.remove("selected"))
-    row.classList.add("selected")
-
-    // Show detail panel
-    const detailPanel = document.getElementById("exception-detail-desktop")
-    if (detailPanel) {
-      detailPanel.hidden = false
-      detailPanel.classList.remove("hidden")
+    // The checkbox cell is a larger target for its box, never a link.
+    const selectCell = event.target?.closest?.(".rn-col-select")
+    if (selectCell) {
+      selectCell.querySelector("input[type='checkbox']")?.click()
+      return
     }
 
-    // Load content via Turbo
-    const frame = document.getElementById("exception-details")
-    if (frame) {
-      frame.innerHTML = ""
-      frame.src = url
+    const url = event.currentTarget.dataset.url
+    if (!url) return
+
+    event.preventDefault()
+    if (event.metaKey || event.ctrlKey || event.button === 1) {
+      window.open(url, "_blank", "noopener")
+    } else {
+      this.visit(url)
+    }
+  }
+
+  /** Navigates with Turbo when the bundle loaded it, so the page swap stays fast. */
+  visit(url) {
+    if (window.Turbo?.visit) {
+      window.Turbo.visit(url)
+    } else {
+      window.location.assign(url)
     }
   }
 
@@ -180,38 +196,85 @@ export default class extends Controller {
     event.stopPropagation()
   }
 
-  // ─── Close Details ────────────────────────────────────────
+  // ─── Bulk Selection ───────────────────────────────────────
 
-  closeDetails(event) {
+  /** The bar and counts follow the boxes again whenever the list is re-rendered. */
+  rowCheckboxTargetConnected() {
+    this.updateBulk()
+  }
+
+  rowCheckboxTargetDisconnected() {
+    this.updateBulk()
+  }
+
+  /** The header box ticks or clears every row on this page. */
+  toggleAll(event) {
+    this.rowCheckboxTargets.forEach(box => { box.checked = event.target.checked })
+    this.updateBulk()
+  }
+
+  /**
+   * Shows the bulk bar only while something is ticked, keeps its count and
+   * the header box (including its "some ticked" state) in step, and tints
+   * the ticked rows.
+   */
+  updateBulk() {
+    const boxes = this.rowCheckboxTargets
+    const ticked = boxes.filter(box => box.checked).length
+
+    boxes.forEach(box => box.closest("tr")?.classList.toggle("is-checked", box.checked))
+    if (this.hasBulkBarTarget) this.bulkBarTarget.hidden = ticked === 0
+    if (this.hasBulkCountTarget) this.bulkCountTarget.textContent = `${ticked} selected`
+    if (this.hasSelectAllTarget) {
+      this.selectAllTarget.checked = ticked > 0 && ticked === boxes.length
+      this.selectAllTarget.indeterminate = ticked > 0 && ticked < boxes.length
+    }
+  }
+
+  clearSelection() {
+    this.rowCheckboxTargets.forEach(box => { box.checked = false })
+    this.updateBulk()
+  }
+
+  /** Deleting is the one bulk action that cannot be undone, so it asks first. */
+  confirmBulkDelete(event) {
+    const ticked = this.rowCheckboxTargets.filter(box => box.checked).length
+    const noun = ticked === 1 ? "exception" : "exceptions"
+    if (!window.confirm(`Delete ${ticked} ${noun}? This cannot be undone.`)) event.preventDefault()
+  }
+
+  /** Enter in the assignee box assigns, instead of the form's first button (Mute). */
+  submitBulkAssign(event) {
     event.preventDefault()
+    this.element.querySelector("[data-rn-bulk='assign']")?.click()
+  }
 
-    // Deselect all rows
+  /** x ticks the row picked with j / k, for selecting without the mouse. */
+  toggleSelectedRowCheckbox() {
+    this.refreshRows()
+    const box = this.rows[this.selectedIndex]?.querySelector("[data-rails_exception_log-target='rowCheckbox']")
+    if (!box) return
+
+    box.checked = !box.checked
+    this.updateBulk()
+  }
+
+  // ─── Leaving the Detail Page ──────────────────────────────
+
+  /**
+   * Esc goes back to the (filtered) list from a detail page; on the list
+   * itself it clears the keyboard selection.
+   */
+  leaveDetails() {
+    const back = this.element.querySelector("[data-rn-nav='back']")
+    if (back) {
+      back.click()
+      return
+    }
+
     this.refreshRows()
     this.rows.forEach(r => r.classList.remove("selected"))
     this.selectedIndex = -1
-
-    // Hide detail panel
-    const detailPanel = document.getElementById("exception-detail-desktop")
-    if (detailPanel) {
-      detailPanel.hidden = true
-      detailPanel.classList.add("hidden")
-    }
-
-    // Clear the turbo frame
-    const frame = document.getElementById("exception-details")
-    if (frame) {
-      frame.innerHTML = `
-        <div class="text-center py-12">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-bg-secondary)">
-            <svg class="w-5 h-5" style="color: var(--rn-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <p class="mt-2 text-xs" style="color: var(--rn-text-muted)">Select an exception to view details</p>
-          <p class="mt-1 text-xs" style="color: var(--rn-text-muted)">Click a row or press <span class="rn-kbd">↓</span> <span class="rn-kbd">↑</span> to navigate</p>
-        </div>
-      `
-    }
   }
 
   // ─── Tab Switching ────────────────────────────────────────
@@ -221,13 +284,10 @@ export default class extends Controller {
     this.activateTab(tabName)
   }
 
+  // The tabs belong to the detail controller; clicking keeps both in step.
   switchTabByIndex(index) {
-    if (!this.hasTabsTarget) return
-    const tabs = this.tabsTarget.querySelectorAll(".rn-tab")
-    if (index >= 0 && index < tabs.length) {
-      const tabName = tabs[index].dataset.flTabParam || tabs[index].dataset.flTab
-      this.activateTab(tabName)
-    }
+    const tabs = this.element.querySelectorAll(".rn-tabs .rn-tab")
+    if (index >= 0 && index < tabs.length) tabs[index].click()
   }
 
   activateTab(tabName) {
@@ -267,6 +327,11 @@ export default class extends Controller {
 
   // ─── Keyboard Shortcuts Dialog ────────────────────────────
 
+  /** Lets Esc close the shortcuts dialog first instead of leaving the page. */
+  shortcutsOpen() {
+    return this.hasShortcutsDialogTarget && this.shortcutsDialogTarget.classList.contains("open")
+  }
+
   toggleShortcuts() {
     if (!this.hasShortcutsDialogTarget) return
     const isOpen = this.shortcutsDialogTarget.classList.contains("open")
@@ -287,19 +352,14 @@ export default class extends Controller {
 
   // ─── Navigation (prev/next) ───────────────────────────────
 
+  /** p / ← follows the detail page's "previous" link, wherever it sits. */
   navigateToPrev() {
-    const prevLink = document.querySelector(".rn-nav-link[href*='logged_exceptions']")
-    if (prevLink && prevLink.querySelector(".rn-nav-link-label")?.textContent === "Previous") {
-      prevLink.click()
-    }
+    this.element.querySelector("[data-rn-nav='prev']")?.click()
   }
 
+  /** n / → follows the detail page's "next" link, wherever it sits. */
   navigateToNext() {
-    const links = document.querySelectorAll(".rn-nav-link[href*='logged_exceptions']")
-    const nextLink = Array.from(links).find(link =>
-      link.querySelector(".rn-nav-link-label")?.textContent === "Next"
-    )
-    if (nextLink) nextLink.click()
+    this.element.querySelector("[data-rn-nav='next']")?.click()
   }
 
   // ─── Copy to Clipboard ───────────────────────────────────

@@ -1,0 +1,79 @@
+<%# Keyboard shortcuts dialog, shared by the exception list and detail pages.
+    Locals:
+      context — :list (row navigation) or :detail (previous/next, tabs, back)
+%>
+<% context = local_assigns.fetch(:context, :list) %>
+
+<div class="rn-shortcuts-overlay"
+     data-rails_exception_log-target="shortcutsDialog"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="rn-shortcuts-title">
+  <div class="rn-shortcuts">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="rn-shortcuts-title">Keyboard Shortcuts</h3>
+      <button type="button"
+              class="rn-icon-btn"
+              data-action="click->rails_exception_log#closeShortcuts"
+              aria-label="Close keyboard shortcuts">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <% if context == :list %>
+      <%# List page %>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Focus search</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">/</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Navigate down</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">j</span> or <span class="rn-kbd">↓</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Navigate up</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">k</span> or <span class="rn-kbd">↑</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Open selected</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">Enter</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Tick row for bulk actions</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">x</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Clear selection</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">Esc</span></div>
+      </div>
+    <% else %>
+      <%# Detail page %>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Previous exception</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">p</span> or <span class="rn-kbd">←</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Next exception</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">n</span> or <span class="rn-kbd">→</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Switch tab</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">1</span> – <span class="rn-kbd">9</span></div>
+      </div>
+      <div class="rn-shortcut-row">
+        <span class="rn-shortcut-label">Back to the list</span>
+        <div class="rn-shortcut-keys"><span class="rn-kbd">Esc</span></div>
+      </div>
+    <% end %>
+
+    <%# Both pages %>
+    <div class="rn-shortcut-row">
+      <span class="rn-shortcut-label">Toggle theme</span>
+      <div class="rn-shortcut-keys"><span class="rn-kbd">t</span></div>
+    </div>
+    <div class="rn-shortcut-row">
+      <span class="rn-shortcut-label">Show shortcuts</span>
+      <div class="rn-shortcut-keys"><span class="rn-kbd">?</span></div>
+    </div>
+  </div>
+</div>

@@ -9,7 +9,8 @@ module RailsExceptionLog
       occurrence_count_gteq platform_eq priority_eq s
     ].freeze
 
-    helper_method :exception_feature?, :params_filters, :prev_exception, :next_exception
+    helper_method :exception_feature?, :params_filters, :prev_exception, :next_exception,
+                  :page_size, :page_size_choices, :grouped_by_class?
 
     def index
       load_exception_index
@@ -36,11 +37,6 @@ module RailsExceptionLog
       @exception = LoggedException.find(params[:id])
       load_nav_exceptions if RailsExceptionLog.configuration.enable_navigation
       load_exception_tabs
-
-      respond_to do |format|
-        format.turbo_stream
-        format.html
-      end
     end
 
     def destroy
@@ -49,7 +45,7 @@ module RailsExceptionLog
 
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to logged_exceptions_path, status: :see_other }
+        format.html { redirect_to logged_exceptions_path(params_filters), status: :see_other }
       end
     end
 
@@ -59,7 +55,7 @@ module RailsExceptionLog
       else
         ransack_search.result(distinct: false)
       end
-      exceptions.delete_all
+      LoggedException.delete_with_history(exceptions)
 
       load_exception_index
 
@@ -70,7 +66,7 @@ module RailsExceptionLog
     end
 
     def clear
-      LoggedException.delete_all
+      LoggedException.delete_with_history
 
       load_exception_index
 
@@ -92,11 +88,25 @@ module RailsExceptionLog
       options.include?(requested) ? requested : (RailsExceptionLog.configuration.per_page || 30)
     end
 
+    # The page-size buttons always include the size in effect, so one of them
+    # is shown as selected even when the configured default (30) is not
+    # among page_size_options.
+    def page_size_choices
+      default = RailsExceptionLog.configuration.per_page || 30
+      (RailsExceptionLog.configuration.page_size_options + [default]).uniq.sort
+    end
+
     def load_exception_index
       load_filter_options
       @q = ransack_search
       load_stats if RailsExceptionLog.configuration.show_stats
       @pagy, @exceptions = rails_exception_log_pagy(@q.result(distinct: true), limit: page_size)
+      @show_trends = Occurrence.available?
+      if grouped_by_class?
+        load_class_groups
+      else
+        @trends = Occurrence.daily_counts(@exceptions.map(&:id))
+      end
     end
 
     def ransack_search
@@ -120,7 +130,8 @@ module RailsExceptionLog
         platform_filter: params[:platform_filter],
         controller_actions_filter: params[:controller_actions_filter],
         status_filter: params[:status_filter],
-        per_page: params[:per_page]
+        per_page: params[:per_page],
+        group: (params[:group] if grouped_by_class?)
       }.compact
     end
 
@@ -156,6 +167,7 @@ module RailsExceptionLog
 
       case params[:status_filter]
       when "active"
+        scope = scope.unresolved if exception_feature?(:resolved_at)
         exception_feature?(:muted) && exception_feature?(:snoozed_until) ? scope.active : scope
       when "muted"
         exception_feature?(:muted) ? scope.muted : scope
@@ -163,6 +175,12 @@ module RailsExceptionLog
         exception_feature?(:snoozed_until) ? scope.snoozed : scope
       when "unassigned"
         exception_feature?(:assigned_to) ? scope.unassigned : scope
+      when "resolved"
+        exception_feature?(:resolved_at) ? scope.resolved : scope
+      when "unresolved"
+        exception_feature?(:resolved_at) ? scope.unresolved : scope
+      when "regressed"
+        exception_feature?(:regressed_at) ? scope.regressed : scope
       else
         scope
       end
@@ -187,6 +205,40 @@ module RailsExceptionLog
         top_classes: LoggedException.group(:exception_class).limit(5).count,
         top_controllers: LoggedException.group(:controller_name).limit(5).count
       }
+    end
+
+    GROUP_LIMIT = 200
+    private_constant :GROUP_LIMIT
+    ClassGroup = Struct.new(:exception_class, :total, :errors, :sources, :last_seen, :trend) do
+      # Lets the list's own date helper format a group's last-seen time.
+      def created_at = last_seen
+    end
+
+    def grouped_by_class?
+      params[:group] == "class"
+    end
+
+    # One row per exception class across the filtered list: summed count,
+    # how many distinct errors (fingerprints) and sources it spans, and when
+    # it was last seen. Classes are few, so they are shown without paging.
+    def load_class_groups
+      scope = @q.result(distinct: false).reorder(nil)
+      totals = if exception_feature?(:occurrence_count)
+        scope.group(:exception_class).sum(Arel.sql("COALESCE(occurrence_count, 1)"))
+      else
+        scope.group(:exception_class).count
+      end
+      errors = scope.group(:exception_class).count
+      last_seen = scope.group(:exception_class).maximum(:created_at)
+      sources = scope.distinct.pluck(:exception_class, :controller_name, :action_name)
+                     .group_by(&:first).transform_values(&:size)
+      trends = Occurrence.daily_counts_by_class(scope)
+
+      groups = errors.keys.map do |klass|
+        ClassGroup.new(klass, totals[klass].to_i, errors[klass], sources[klass].to_i, last_seen[klass], trends[klass])
+      end
+      @class_groups = groups.sort_by { |group| group.last_seen || Time.zone.at(0) }.reverse.first(GROUP_LIMIT)
+      @class_group_total = groups.size
     end
 
     NavExceptionLink = Struct.new(:id, :exception_class)

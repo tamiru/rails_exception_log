@@ -1,0 +1,63 @@
+<%# One row per exception class across the filtered list (?group=class).
+    Each row opens the row list filtered to exactly that class. %>
+
+<div class="rn-table-wrap">
+  <table class="rn-table rn-exceptions-table rn-groups-table">
+    <caption class="sr-only">Exceptions grouped by class</caption>
+    <thead>
+      <tr>
+        <th class="rn-col-exception">Exception class</th>
+        <th class="rn-col-source">Sources</th>
+        <th class="rn-col-message">Spread</th>
+        <th class="rn-col-count">Count</th>
+        <% if @show_trends %>
+          <th class="rn-col-trend">7 days</th>
+        <% end %>
+        <th class="rn-col-time">Last Seen</th>
+      </tr>
+    </thead>
+    <tbody data-rails_exception_log-target="exceptionList">
+      <% @class_groups.each do |group| %>
+        <tr tabindex="0"
+            aria-label="Show <%= group.exception_class %> exceptions"
+            data-action="click->rails_exception_log#selectRow keydown.enter->rails_exception_log#selectRow"
+            data-url="<%= logged_exceptions_path(params_filters.except(:group).merge(exception_names_filter: group.exception_class)) %>">
+          <td class="rn-col-exception">
+            <div class="rn-exception-cell">
+              <span class="rn-severity-dot rn-severity-<%= severity_for(group) %>" aria-hidden="true"></span>
+              <%= link_to breakable_class_name(group.exception_class),
+                          logged_exceptions_path(params_filters.except(:group).merge(exception_names_filter: group.exception_class)),
+                          class: "rn-exception-name rn-row-link",
+                          tabindex: -1,
+                          data: { turbo_frame: "_top" } %>
+            </div>
+          </td>
+          <td class="rn-col-source">
+            <span class="rn-group-stat"><%= pluralize(group.sources, "source") %></span>
+          </td>
+          <td class="rn-col-message">
+            <span class="rn-group-stat"><%= pluralize(group.errors, "distinct error") %></span>
+          </td>
+          <td class="rn-col-count">
+            <span class="rn-occurrence-count" title="<%= pluralize(group.total, 'occurrence') %>"><%= number_with_delimiter(group.total) %></span>
+          </td>
+          <% if @show_trends %>
+            <td class="rn-col-trend"><%= trend_sparkline(group.trend) %></td>
+          <% end %>
+          <td class="rn-col-time rn-date">
+            <% if group.last_seen %>
+              <time datetime="<%= group.last_seen.iso8601 %>"
+                    title="<%= group.last_seen.strftime("%B %d, %Y at %I:%M:%S %p %Z") %>"><%= pretty_exception_date(group) %></time>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<% if @class_group_total > @class_groups.size %>
+  <p class="rn-groups-note">
+    Showing the <%= @class_groups.size %> most recently seen of <%= @class_group_total %> classes. Narrow the filters to see the rest.
+  </p>
+<% end %>

@@ -2389,6 +2389,7 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
 .rn-pill-danger { background: var(--rn-danger-light); color: var(--rn-danger); border-color: var(--rn-danger-ring); }
 .rn-pill-warning { background: var(--rn-warning-light); color: var(--rn-warning-text); }
 .rn-pill-info { background: var(--rn-info-light); color: var(--rn-info); }
+.rn-pill-success { background: var(--rn-success-light); color: var(--rn-success); }
 .rn-pill-muted { background: var(--rn-bg-secondary); color: var(--rn-text-secondary); border-color: var(--rn-border); }
 .rn-row-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
 
@@ -2429,3 +2430,272 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
   .rn-meta-item-wide { grid-column: 1 / -1; }
   .rn-kv-row { grid-template-columns: minmax(0, 1fr); gap: 0.125rem; }
 }
+
+/* ─── Exception detail page ─────────────────────────────────── */
+/* The detail renders as its own page: the card clips its corners
+   without becoming a scroll container, so the tab bar can stay
+   pinned under the top bar while the page scrolls. */
+.rn-detail-page { padding: 0; overflow: clip; }
+.rn-detail-page .rn-detail-panel { overflow: visible; border-left: none; }
+.rn-detail-page .rn-detail-header { position: static; }
+.rn-detail-page .rn-tabs {
+  position: sticky;
+  top: 3.5rem;
+  z-index: 6;
+  background: var(--rn-surface);
+}
+.rn-detail-stepper { display: inline-flex; align-items: center; gap: 0.125rem; }
+.rn-detail-stepper .rn-icon-btn { border: 1px solid var(--rn-border); }
+.rn-detail-stepper .rn-icon-btn:hover { border-color: var(--rn-primary); color: var(--rn-primary); text-decoration: none; }
+.rn-icon-btn.is-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.rn-icon-btn:focus-visible,
+.rn-row-link:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+
+/* ─── Exception list: rows open the detail page ─────────────── */
+.rn-exceptions-table tbody tr[data-url] { cursor: pointer; }
+.rn-exceptions-table .rn-row-link { text-decoration: none; }
+.rn-exceptions-table tr:hover .rn-row-link,
+.rn-exceptions-table .rn-row-link:hover { color: var(--rn-primary); text-decoration: none; }
+
+/* ─── Exceptions table polish ───────────────────────────────── */
+/* Rows are divided by their bottom border alone: an older rule's fixed
+   light top border showed as a white line under the header in dark mode. */
+.rn-table td { border-top: 0; }
+
+/* Every cell starts on the same baseline. */
+.rn-exceptions-table .rn-msg { margin-top: 0; }
+.rn-exceptions-table .rn-col-count .rn-occurrence-count { margin-top: -0.1875rem; }
+.rn-exceptions-table .rn-exception-cell .rn-severity-dot { flex: none; }
+
+/* Sort state: one arrow, drawn here (Ransack's text arrow is hidden). */
+.rn-table th.sorted-asc::after,
+.rn-table th.sorted-desc::after { content: none; }
+.rn-table th.sortable a { display: inline-flex; align-items: center; gap: 0.25rem; }
+.rn-table th.sortable a::after { content: "↕"; font-size: 0.75rem; opacity: 0; transition: opacity var(--rn-transition); }
+.rn-table th.sortable:hover a::after,
+.rn-table th.sortable a:focus-visible::after { opacity: 0.5; }
+.rn-table th.sorted-asc,
+.rn-table th.sorted-desc { color: var(--rn-text); }
+.rn-table th.sorted-asc a::after { content: "↑"; color: var(--rn-primary); opacity: 1; }
+.rn-table th.sorted-desc a::after { content: "↓"; color: var(--rn-primary); opacity: 1; }
+.rn-table th.sortable a:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; border-radius: 0.25rem; }
+
+/* Source: controller over action, so a long one is not cut off twice. */
+.rn-exceptions-table .rn-source { flex-direction: column; gap: 0.125rem; font-size: 0.75rem; line-height: 1.35; }
+.rn-exceptions-table .rn-source > span { white-space: nowrap; }
+.rn-exceptions-table .rn-source-controller { color: var(--rn-text-secondary); }
+.rn-exceptions-table .rn-source-action { color: var(--rn-text-muted); }
+
+/* Numbers line up from row to row. */
+.rn-exceptions-table .rn-occurrence-count,
+.rn-exceptions-table .rn-col-time { font-variant-numeric: tabular-nums; }
+.rn-exceptions-table .rn-col-time time { cursor: help; }
+
+/* Keyboard focus on a row is as visible as the hover and selection. */
+.rn-exceptions-table tbody tr:focus-visible { box-shadow: inset 0 0 0 2px var(--rn-primary); }
+
+/* Rows-per-page buttons */
+.rn-page-size { display: flex; align-items: center; gap: 0.25rem; }
+.rn-page-size-label { margin-right: 0.25rem; color: var(--rn-text-muted); font-size: 0.75rem; }
+
+/* Pagination (Pagy's series nav) */
+.rn-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rn-border-light);
+}
+.rn-pagination .pagy { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem; }
+.rn-pagination .pagy a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius-sm);
+  background: var(--rn-surface);
+  color: var(--rn-text-secondary);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: all var(--rn-transition);
+}
+.rn-pagination .pagy a[href]:hover { border-color: var(--rn-primary); color: var(--rn-primary); }
+.rn-pagination .pagy a[href]:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+.rn-pagination .pagy a[aria-current="page"] { border-color: var(--rn-primary); background: var(--rn-primary); color: #fff; font-weight: 600; }
+.rn-pagination .pagy a[aria-disabled="true"]:not([aria-current]) { opacity: 0.4; cursor: default; }
+
+/* Card layout (narrow screens): source stays on one labelled line. */
+@media (max-width: 1100px) {
+  .rn-exceptions-table .rn-source { flex-direction: row; align-items: baseline; gap: 0; }
+  .rn-exceptions-table .rn-source > span { overflow: hidden; text-overflow: ellipsis; }
+  .rn-exceptions-table .rn-col-source,
+  .rn-exceptions-table .rn-col-count,
+  .rn-exceptions-table .rn-col-time { align-self: center; }
+  .rn-exceptions-table .rn-col-count .rn-occurrence-count { margin-top: 0; }
+}
+
+/* ─── Quick filter chips ────────────────────────────────────── */
+.rn-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--rn-border-light);
+}
+.rn-quick-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--rn-border);
+  border-radius: 999px;
+  background: var(--rn-surface);
+  color: var(--rn-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--rn-transition);
+}
+.rn-quick-filter:hover { border-color: var(--rn-primary); color: var(--rn-primary); text-decoration: none; }
+.rn-quick-filter:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+.rn-quick-filter.is-active { border-color: var(--rn-primary); background: var(--rn-primary-light); color: var(--rn-primary); font-weight: 600; }
+
+/* ─── Bulk selection ────────────────────────────────────────── */
+.rn-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--rn-primary);
+  cursor: pointer;
+}
+.rn-checkbox:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+.rn-exceptions-table .rn-col-select { width: 2.25rem; padding-right: 0; }
+.rn-exceptions-table td.rn-col-select { padding-top: 0.875rem; cursor: default; }
+.rn-exceptions-table tbody tr.is-checked { background: var(--rn-primary-light); }
+
+.rn-bulk-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--rn-border-light);
+  background: var(--rn-primary-light);
+}
+.rn-bulk-bar[hidden] { display: none; }
+.rn-bulk-count { color: var(--rn-primary); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rn-bulk-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; margin-left: auto; }
+.rn-bulk-group { display: inline-flex; align-items: center; gap: 0.25rem; }
+.rn-bulk-bar .rn-btn-ghost { border: 1px solid var(--rn-border); background: var(--rn-surface); }
+.rn-bulk-bar .rn-btn-ghost:hover { border-color: var(--rn-primary); color: var(--rn-primary); }
+.rn-bulk-bar .rn-bulk-delete { border-color: var(--rn-danger); color: var(--rn-danger); }
+.rn-bulk-bar .rn-bulk-delete:hover { border-color: var(--rn-danger); background: var(--rn-danger-light); color: var(--rn-danger); }
+.rn-select-sm,
+.rn-input-sm { width: auto; height: 1.875rem; padding-top: 0; padding-bottom: 0; font-size: 0.75rem; }
+.rn-select-sm { padding-right: 1.75rem; background-size: 1rem; }
+.rn-input-sm { width: 9rem; }
+
+/* Card layout: the checkbox sits beside the exception name. */
+@media (max-width: 1100px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "select exception exception actions"
+      ". message message message"
+      ". source count time";
+  }
+  .rn-exceptions-table .rn-col-select { grid-area: select; padding-top: 0.125rem; }
+}
+@media (max-width: 639px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "select exception actions actions"
+      ". message message message"
+      ". source source source"
+      ". count time time";
+  }
+  .rn-bulk-actions { margin-left: 0; }
+}
+
+/* ─── 7-day trend ───────────────────────────────────────────── */
+.rn-exceptions-table .rn-col-trend { width: 4.5rem; }
+.rn-exceptions-table td.rn-col-trend { padding-top: 0.875rem; }
+.rn-trend { display: block; overflow: visible; }
+.rn-trend-bar { fill: var(--rn-text-muted); opacity: 0.55; }
+.rn-trend-bar.is-today { fill: var(--rn-primary); opacity: 1; }
+.rn-trend-bar.is-zero { fill: var(--rn-border); opacity: 1; }
+.rn-trend-empty { color: var(--rn-text-muted); font-size: 0.75rem; }
+
+/* Card layout: the trend sits with the count and time. */
+@media (max-width: 1100px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "select exception exception exception actions"
+      ". message message message message"
+      ". source trend count time";
+  }
+  .rn-exceptions-table .rn-col-trend { grid-area: trend; align-self: center; padding: 0; }
+}
+@media (max-width: 639px) {
+  .rn-exceptions-table tbody tr {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "select exception actions actions"
+      ". message message message"
+      ". source source source"
+      ". trend count time";
+  }
+}
+
+/* ─── View toggle: rows or one row per class ────────────────── */
+.rn-view-toggle {
+  display: inline-flex;
+  padding: 0.125rem;
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius-sm);
+  background: var(--rn-surface);
+}
+.rn-view-toggle-option {
+  padding: 0.125rem 0.625rem;
+  border-radius: calc(var(--rn-radius-sm) - 0.125rem);
+  color: var(--rn-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rn-view-toggle-option:hover { color: var(--rn-primary); text-decoration: none; }
+.rn-view-toggle-option:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 1px; }
+.rn-view-toggle-option.is-active { background: var(--rn-primary-light); color: var(--rn-primary); font-weight: 600; }
+
+/* ─── Grouped by class ──────────────────────────────────────── */
+.rn-group-stat { color: var(--rn-text-secondary); font-size: 0.8125rem; }
+.rn-groups-table .rn-col-source { width: 7rem; }
+.rn-groups-note {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rn-border-light);
+  color: var(--rn-text-muted);
+  font-size: 0.75rem;
+}
+
+/* ─── Resolve / reopen ──────────────────────────────────────── */
+.rn-detail-badges { display: contents; }
+.rn-resolution-button { display: inline-flex; }
+.rn-resolution-button form { display: inline-flex; margin: 0; }
+.rn-resolution-button .rn-btn { gap: 0.25rem; }
+.rn-btn-success { background: var(--rn-success); color: #fff; }
+.rn-btn-success:hover { filter: brightness(0.95); text-decoration: none; }
+.rn-btn-bordered { border: 1px solid var(--rn-border); background: var(--rn-surface); }
+.rn-btn-bordered:hover { border-color: var(--rn-primary); color: var(--rn-primary); }
+.rn-btn-success:focus-visible,
+.rn-btn-bordered:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }

@@ -5,6 +5,7 @@ RailsExceptionLog::Engine.routes.draw do
       match :query, via: %i[get post]
       post :destroy_all
       get :feed
+      post :bulk, to: "workflow#bulk"
     end
     member do
       post :assign, to: "workflow#assign"
@@ -12,6 +13,8 @@ RailsExceptionLog::Engine.routes.draw do
       post :snooze, to: "workflow#snooze"
       post :mute, to: "workflow#mute"
       post :unmute, to: "workflow#unmute"
+      post :resolve, to: "workflow#resolve"
+      post :reopen, to: "workflow#reopen"
       post :add_comment, to: "workflow#add_comment"
     end
   end

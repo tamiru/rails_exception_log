@@ -33,7 +33,7 @@ en:
         confirm_delete: Delete this exception?
         confirm_delete_visible: Delete all visible exceptions?
       _show:
-        close: Close
+        back: Back to list
         request: Request
         message: Message
         backtrace: Backtrace
@@ -44,4 +44,5 @@ en:
         rss_feed: Subscribe to the RSS feed
       show:
         title: Logged Exception
+        exceptions: Exceptions
 

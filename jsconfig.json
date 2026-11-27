@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "rails_exception_log/controllers/*": ["app/javascript/controllers/*_controller.js"]
+    }
+  }
+}

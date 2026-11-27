@@ -15,6 +15,7 @@ module RailsExceptionLog
 
     # ─── Associations ──────────────────────────────────────────────
     has_many :comments, class_name: "RailsExceptionLog::Comment", dependent: :destroy
+    has_many :occurrences, class_name: "RailsExceptionLog::Occurrence", dependent: :delete_all
 
     # ─── Scopes ────────────────────────────────────────────────────
     scope :muted, -> { where(muted: true) }
@@ -25,6 +26,9 @@ module RailsExceptionLog
     scope :assigned_to, ->(user) { where(assigned_to: user) }
     scope :unassigned, -> { where(assigned_to: [nil, ""]) }
     scope :active, -> { not_muted.not_snoozed }
+    scope :resolved, -> { where.not(resolved_at: nil) }
+    scope :unresolved, -> { where(resolved_at: nil) }
+    scope :regressed, -> { unresolved.where.not(regressed_at: nil) }
 
     def self.ransackable_attributes(_auth_object = nil)
       %w[action_name backtrace cause_chain controller_name created_at device_type environment
@@ -128,16 +132,57 @@ module RailsExceptionLog
         existing = where(fingerprint: attributes["fingerprint"]).order(created_at: :desc).first
 
         record = if existing
-          existing.update!(attributes.except("fingerprint").merge(
-            "occurrence_count" => existing.occurrence_count.to_i + 1,
-            "created_at" => captured_at
-          ))
+          fold_into(existing, attributes, captured_at)
           existing
         else
           create!(attributes.merge("occurrence_count" => 1, "created_at" => captured_at))
         end
+        record_occurrence(record, captured_at)
         RailsExceptionLog::StormProtection.record_captured if defined?(RailsExceptionLog::StormProtection)
         record
+      end
+
+      # A repeat bumps the existing row's count and last-seen time. A repeat
+      # of a resolved exception also reopens it and flags it as regressed,
+      # so a fix that did not hold is visible instead of hidden.
+      def fold_into(existing, attributes, captured_at)
+        changes = attributes.except("fingerprint").merge(
+          "occurrence_count" => existing.occurrence_count.to_i + 1,
+          "created_at" => captured_at
+        )
+        regressed = existing.resolved?
+        changes.merge!("resolved_at" => nil, "resolved_by" => nil, "regressed_at" => captured_at) if regressed
+
+        existing.update!(changes)
+        return unless regressed
+
+        existing.comments.create!(author: "system", body: "Regressed — seen again after being resolved",
+                                  comment_type: "status_change")
+      end
+
+      # Keeps the per-occurrence history behind the list's trend, and trims
+      # this exception's entries past the retention window while it is here.
+      # History is a nicety: failing to write it never loses the capture.
+      def record_occurrence(record, occurred_at)
+        return unless RailsExceptionLog::Occurrence.available?
+
+        record.occurrences.create!(occurred_at: occurred_at)
+        record.occurrences.where(occurred_at: ...RailsExceptionLog::Occurrence::RETENTION.ago).delete_all
+      rescue StandardError => error
+        Rails.logger.warn("[RailsExceptionLog] Could not record occurrence history: #{error.class}: #{error.message}")
+      end
+
+      # delete_all for exceptions, taking their comments and occurrence
+      # history with them (delete_all skips dependent: callbacks).
+      def delete_with_history(scope = all)
+        ids = scope.pluck(:id)
+        return 0 if ids.empty?
+
+        transaction do
+          RailsExceptionLog::Comment.where(logged_exception_id: ids).delete_all
+          RailsExceptionLog::Occurrence.where(logged_exception_id: ids).delete_all if RailsExceptionLog::Occurrence.available?
+          where(id: ids).delete_all
+        end
       end
 
       def host_name
@@ -267,6 +312,8 @@ module RailsExceptionLog
       badges = []
       badges << { label: priority.to_s.capitalize, tone: PRIORITY_TONES.fetch(priority.to_s, "muted") } if priority.present?
       badges << { label: "@#{assigned_to}", tone: "info" } if assigned_to.present?
+      badges << { label: "Resolved", tone: "success" } if resolved?
+      badges << { label: "Regressed", tone: "danger" } if regressed?
       badges << { label: "Muted", tone: "muted" } if muted?
       badges << { label: "Snoozed", tone: "muted" } if snoozed?
       badges
@@ -1051,6 +1098,27 @@ module RailsExceptionLog
     def unmute!(author: "system")
       update!(muted: false, muted_at: nil)
       comments.create!(author: author, body: "Unmuted — notifications restored", comment_type: "status_change")
+    end
+
+    # Marks the exception fixed. If it is captured again it reopens itself
+    # and is flagged as regressed (see persist_capture).
+    def resolve!(author: "system")
+      update!(resolved_at: Time.current, resolved_by: author, regressed_at: nil)
+      comments.create!(author: author, body: "Resolved", comment_type: "status_change")
+    end
+
+    def reopen!(author: "system")
+      update!(resolved_at: nil, resolved_by: nil)
+      comments.create!(author: author, body: "Reopened", comment_type: "status_change")
+    end
+
+    # Apps that have not added the resolution columns yet see neither state.
+    def resolved?
+      has_attribute?(:resolved_at) && resolved_at.present?
+    end
+
+    def regressed?
+      has_attribute?(:regressed_at) && regressed_at.present? && !resolved?
     end
 
     # Check if currently snoozed

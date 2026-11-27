@@ -22,3 +22,4 @@ gemfiles/*.lock
 *.backup
 /.freebuff/
 ~/  (home dir files)
+/node_modules/

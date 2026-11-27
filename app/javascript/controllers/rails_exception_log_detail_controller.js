@@ -5,17 +5,38 @@ export default class extends Controller {
 
   // ─── Tab Switching ────────────────────────────────────────
 
+  // Reopen the tab named in the URL (#backtrace), so a reload, a shared
+  // link, or Back from another page lands on the same tab.
+  connect() {
+    const tabName = decodeURIComponent(window.location.hash.slice(1))
+    if (tabName && this.hasTab(tabName)) this.showTab(tabName)
+  }
+
   switchTab(event) {
     const tabName = event.params.tab || event.currentTarget.getAttribute("data-rn-tab-param")
     if (!tabName) return
 
-    // Update tab buttons
-    this.tabsTarget.querySelectorAll(".rn-tab").forEach(tab => {
-      const isActive = tab.getAttribute("data-rn-tab-param") === tabName
-      tab.classList.toggle("active", isActive)
-    })
+    this.showTab(tabName)
+    const url = new URL(window.location.href)
+    url.hash = tabName === "overview" ? "" : tabName
+    history.replaceState(history.state, "", url)
+  }
 
-    // Show/hide tab content
+  /** Ignores a hash that names no tab on this exception (tabs vary by data). */
+  hasTab(tabName) {
+    return this.tabContentTargets.some(content => content.getAttribute("data-rn-tab-content") === tabName)
+  }
+
+  /** One place that keeps the tab buttons, their ARIA state and the panels in step. */
+  showTab(tabName) {
+    if (this.hasTabsTarget) {
+      this.tabsTarget.querySelectorAll(".rn-tab").forEach(tab => {
+        const isActive = tab.getAttribute("data-rn-tab-param") === tabName
+        tab.classList.toggle("active", isActive)
+        tab.setAttribute("aria-selected", isActive ? "true" : "false")
+      })
+    }
+
     this.tabContentTargets.forEach(content => {
       const isTarget = content.getAttribute("data-rn-tab-content") === tabName
       content.style.display = isTarget ? "" : "none"
@@ -139,27 +160,5 @@ export default class extends Controller {
 
     html += `</div>`
     return html
-  }
-
-  // ─── Close Details ───────────────────────────────────────
-
-  closeDetails() {
-    const frame = document.getElementById("exception-details")
-    if (frame) {
-      frame.innerHTML = `
-        <div class="text-center py-12">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-bg-secondary)">
-            <svg class="w-5 h-5" style="color: var(--rn-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <p class="mt-2 text-xs" style="color: var(--rn-text-muted)">Select an exception to view details</p>
-          <p class="mt-1 text-xs" style="color: var(--rn-text-muted)">Click a row or press <span class="rn-kbd">↓</span> <span class="rn-kbd">↑</span> to navigate</p>
-        </div>
-      `
-    }
-
-    // Deselect rows
-    document.querySelectorAll(".rn-table tbody tr.selected").forEach(r => r.classList.remove("selected"))
   }
 }

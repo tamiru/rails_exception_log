@@ -36,7 +36,7 @@ module RailsExceptionLog
 
       # Copies the engine's own views (not separate templates), so customized
       # copies start from exactly what the installed version renders.
-      CUSTOMIZABLE_VIEWS = %w[index.html.erb _exceptions.html.erb _show.html.erb].freeze
+      CUSTOMIZABLE_VIEWS = %w[index.html.erb _exceptions.html.erb show.html.erb _show.html.erb _shortcuts.html.erb].freeze
 
       def generate_views
         return unless generate_all? || options[:views_only]

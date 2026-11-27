@@ -38,7 +38,7 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
   test "index displays exceptions" do
     get "/rails_exception_log/logged_exceptions"
     assert_select "table"
-    assert_select "span", text: "RuntimeError"
+    assert_select "a.rn-exception-name", text: "RuntimeError"
     assert_select "table.rn-exceptions-table td.rn-col-message .rn-msg[title='Test error message']"
     assert_select "th.sortable a", minimum: 5
     assert_select "th.rn-col-platform, th.rn-col-workflow", count: 0
@@ -201,9 +201,140 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select ".rn-row-badges .rn-pill", text: "Critical"
   end
 
-  test "show as turbo stream" do
-    get "/rails_exception_log/logged_exceptions/#{@exception.id}", as: :turbo_stream
+  test "show is a page of its own that leads back to the filtered list" do
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
+
     assert_response :success
+    assert_select "turbo-frame#exception-details", count: 0
+    assert_select "h1#rn-detail-title", text: @exception.exception_class
+    assert_select ".rn-breadcrumbs a.rn-breadcrumb[href='/rails_exception_log/logged_exceptions?status_filter=active']", text: "Exceptions"
+    assert_select "a[data-rn-nav='back'][href='/rails_exception_log/logged_exceptions?status_filter=active']"
+    assert_select "[role='tablist'] [role='tab'][aria-selected='true']", text: "Overview"
+    assert_select ".rn-detail-body [data-rn-tab-content='workflow']"
+  end
+
+  test "index opens each exception on its own page instead of an inline panel" do
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "active" }
+
+    assert_select "#exception-detail-desktop", count: 0
+    assert_select "turbo-frame#exception-details", count: 0
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(@exception)}[data-url='/rails_exception_log/logged_exceptions/#{@exception.id}?status_filter=active']"
+    assert_select "a.rn-row-link[data-turbo-frame='_top'][href='/rails_exception_log/logged_exceptions/#{@exception.id}?status_filter=active']"
+  end
+
+  test "the page size in effect is the selected one, even when it is the default" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select ".rn-page-size a[aria-current='true']", text: "30"
+    assert_select ".rn-page-size a[aria-current]", count: 1
+
+    get "/rails_exception_log/logged_exceptions", params: { per_page: 50 }
+    assert_select ".rn-page-size a[aria-current='true']", text: "50"
+  end
+
+  test "the sorted column is announced once and Ransack's text arrow is hidden" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select "th.rn-col-time[aria-sort='descending'] a", text: "Last Seen"
+    assert_select "th[aria-sort]", count: 1
+    assert_not_includes response.body, "&#9660;"
+
+    get "/rails_exception_log/logged_exceptions", params: { q: { s: "exception_class asc" } }
+    assert_select "th.rn-col-exception[aria-sort='ascending']"
+  end
+
+  test "quick filter chips switch a filter on and off and keep the others" do
+    get "/rails_exception_log/logged_exceptions", params: { per_page: 50 }
+    assert_select ".rn-quick-filter", text: /Today/
+    assert_select ".rn-quick-filter[href='/rails_exception_log/logged_exceptions?per_page=50&q%5Bpriority_eq%5D=critical']",
+                  text: /Critical/
+    assert_select ".rn-quick-filter[aria-current]", count: 0
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "muted", per_page: 50 }
+    assert_select ".rn-quick-filter.is-active[aria-current='true']", text: /Muted/
+    assert_select ".rn-quick-filter.is-active[href='/rails_exception_log/logged_exceptions?per_page=50']"
+    assert_select ".rn-quick-filter[href*='status_filter=unassigned']", text: /Unassigned/
+  end
+
+  test "each row has a checkbox tied to the bulk form" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select "form#rn-bulk-form[action='/rails_exception_log/logged_exceptions/bulk'][hidden]"
+    assert_select "input[type='checkbox'][name='ids[]'][form='rn-bulk-form'][value='#{@exception.id}']"
+    assert_select "#rn-bulk-form button[name='bulk_action']", minimum: 4
+  end
+
+  test "each row shows its last seven days of occurrences" do
+    @exception.occurrences.create!(occurred_at: 1.hour.ago)
+    @exception.occurrences.create!(occurred_at: 2.hours.ago)
+
+    get "/rails_exception_log/logged_exceptions"
+
+    assert_select "th.rn-col-trend", text: "7 days"
+    assert_select "td.rn-col-trend svg.rn-trend[role='img'][aria-label='2 occurrences in the last 7 days']"
+    assert_select "td.rn-col-trend svg rect.rn-trend-bar", count: 7
+  end
+
+  test "group by class shows one row per class with totals and links to that class" do
+    RailsExceptionLog::LoggedException.create!(exception_class: "RuntimeError", controller_name: "orders",
+                                               action_name: "index", occurrence_count: 3, fingerprint: "rt-2")
+    RailsExceptionLog::LoggedException.create!(exception_class: "KeyError", controller_name: "users",
+                                               action_name: "show", occurrence_count: 1, fingerprint: "ke-1")
+
+    get "/rails_exception_log/logged_exceptions", params: { group: "class" }
+
+    assert_select ".rn-view-toggle-option.is-active", text: "By class"
+    assert_select "table.rn-groups-table tbody tr", count: 2
+    assert_select "tr[data-url='/rails_exception_log/logged_exceptions?exception_names_filter=RuntimeError']" do
+      assert_select ".rn-occurrence-count", text: "15"
+      assert_select ".rn-group-stat", text: "2 distinct errors"
+      assert_select ".rn-group-stat", text: "2 sources"
+    end
+    assert_select "input[name='ids[]']", count: 0
+  end
+
+  test "group by class respects the filters and keeps them in its links" do
+    get "/rails_exception_log/logged_exceptions", params: { group: "class", q: { priority_eq: "low" } }
+    assert_select "table.rn-groups-table tbody tr", count: 0
+
+    get "/rails_exception_log/logged_exceptions", params: { group: "class", status_filter: "active" }
+    assert_select ".rn-view-toggle-option[href='/rails_exception_log/logged_exceptions?status_filter=active']",
+                  text: "Rows"
+  end
+
+  test "the class filter a group opens with is shown as a removable pill" do
+    get "/rails_exception_log/logged_exceptions", params: { exception_names_filter: "RuntimeError" }
+    assert_select ".rn-filter-pill", text: /Class:\s*RuntimeError/
+  end
+
+  test "status filters separate resolved, regressed and active exceptions" do
+    resolved = RailsExceptionLog::LoggedException.create!(exception_class: "FixedError", resolved_at: 1.hour.ago)
+    regressed = RailsExceptionLog::LoggedException.create!(exception_class: "BackAgainError", regressed_at: 1.minute.ago)
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "resolved" }
+    assert_select "tbody tr[data-url]", count: 1
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(resolved)} .rn-pill", text: "Resolved"
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "regressed" }
+    assert_select "tbody tr[data-url]", count: 1
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(regressed)} .rn-pill", text: "Regressed"
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "active" }
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(resolved)}", count: 0
+    assert_select ".rn-quick-filter", text: /Regressed/
+  end
+
+  test "the detail page offers Resolve, or Reopen once resolved" do
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select "#rn-resolution-button form[action='/rails_exception_log/logged_exceptions/#{@exception.id}/resolve']"
+
+    @exception.resolve!(author: "amina")
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select "#rn-resolution-button form[action='/rails_exception_log/logged_exceptions/#{@exception.id}/reopen']"
+    assert_select "#rn-detail-badges .rn-pill", text: "Resolved"
+  end
+
+  test "deleting from the detail page returns to the filtered list" do
+    delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
+
+    assert_redirected_to "/rails_exception_log/logged_exceptions?status_filter=active"
   end
 
   test "destroy removes exception" do

@@ -16,7 +16,10 @@ module RailsExceptionLog
         return unless config.retention_days.present?
 
         cutoff = config.retention_days.days.ago
-        count = RailsExceptionLog::LoggedException.where("created_at < ?", cutoff).delete_all
+        count = RailsExceptionLog::LoggedException.delete_with_history(
+          RailsExceptionLog::LoggedException.where("created_at < ?", cutoff)
+        )
+        RailsExceptionLog::Occurrence.prune
 
         Rails.logger.info("[RailsExceptionLog] Cleaned up #{count} exceptions older than #{config.retention_days} days") if count > 0
         count
