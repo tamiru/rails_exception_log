@@ -20,8 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   switch tabs and `Esc` goes back to the list. The shortcuts dialog lists only
   the keys that apply to the current page.
 - Deleting from the detail page returns to the filtered list.
+- **Exceptions table** — One sort arrow on the sorted column (announced to
+  screen readers through `aria-sort`), styled page links, and the rows-per-page
+  buttons always show the size in effect, including the default of 30. Source
+  shows the controller above the action instead of cutting both off, numbers
+  use tabular figures, and "Last seen" shows the full time on hover.
 
 ### Fixed
+- A white line under the table header in dark mode, and the message cell
+  sitting lower than the rest of its row.
 - The Cause Chain, Breadcrumbs, System Health and Workflow tabs rendered
   outside the padded detail body.
 - Deleting a row from the list no longer risks following the link as a plain

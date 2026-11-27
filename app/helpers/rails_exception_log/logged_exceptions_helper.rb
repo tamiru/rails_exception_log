@@ -186,6 +186,15 @@ module RailsExceptionLog
       end
     end
 
+    # Tells screen readers which column the list is sorted by; the arrow is
+    # drawn by CSS from sort_header_class, so it is not announced twice.
+    def sort_header_aria(attribute)
+      sort = @q&.sorts&.find { |item| item.name == attribute.to_s }
+      return unless sort
+
+      sort.dir == "asc" ? "ascending" : "descending"
+    end
+
     def sort_header_class(attribute)
       sort = @q&.sorts&.find { |item| item.name == attribute.to_s }
       ["sortable", ("sorted-#{sort.dir}" if sort)].compact.join(" ")

@@ -2455,3 +2455,86 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
 .rn-exceptions-table .rn-row-link { text-decoration: none; }
 .rn-exceptions-table tr:hover .rn-row-link,
 .rn-exceptions-table .rn-row-link:hover { color: var(--rn-primary); text-decoration: none; }
+
+/* ─── Exceptions table polish ───────────────────────────────── */
+/* Rows are divided by their bottom border alone: an older rule's fixed
+   light top border showed as a white line under the header in dark mode. */
+.rn-table td { border-top: 0; }
+
+/* Every cell starts on the same baseline. */
+.rn-exceptions-table .rn-msg { margin-top: 0; }
+.rn-exceptions-table .rn-col-count .rn-occurrence-count { margin-top: -0.1875rem; }
+.rn-exceptions-table .rn-exception-cell .rn-severity-dot { flex: none; }
+
+/* Sort state: one arrow, drawn here (Ransack's text arrow is hidden). */
+.rn-table th.sorted-asc::after,
+.rn-table th.sorted-desc::after { content: none; }
+.rn-table th.sortable a { display: inline-flex; align-items: center; gap: 0.25rem; }
+.rn-table th.sortable a::after { content: "↕"; font-size: 0.75rem; opacity: 0; transition: opacity var(--rn-transition); }
+.rn-table th.sortable:hover a::after,
+.rn-table th.sortable a:focus-visible::after { opacity: 0.5; }
+.rn-table th.sorted-asc,
+.rn-table th.sorted-desc { color: var(--rn-text); }
+.rn-table th.sorted-asc a::after { content: "↑"; color: var(--rn-primary); opacity: 1; }
+.rn-table th.sorted-desc a::after { content: "↓"; color: var(--rn-primary); opacity: 1; }
+.rn-table th.sortable a:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; border-radius: 0.25rem; }
+
+/* Source: controller over action, so a long one is not cut off twice. */
+.rn-exceptions-table .rn-source { flex-direction: column; gap: 0.125rem; font-size: 0.75rem; line-height: 1.35; }
+.rn-exceptions-table .rn-source > span { white-space: nowrap; }
+.rn-exceptions-table .rn-source-controller { color: var(--rn-text-secondary); }
+.rn-exceptions-table .rn-source-action { color: var(--rn-text-muted); }
+
+/* Numbers line up from row to row. */
+.rn-exceptions-table .rn-occurrence-count,
+.rn-exceptions-table .rn-col-time { font-variant-numeric: tabular-nums; }
+.rn-exceptions-table .rn-col-time time { cursor: help; }
+
+/* Keyboard focus on a row is as visible as the hover and selection. */
+.rn-exceptions-table tbody tr:focus-visible { box-shadow: inset 0 0 0 2px var(--rn-primary); }
+
+/* Rows-per-page buttons */
+.rn-page-size { display: flex; align-items: center; gap: 0.25rem; }
+.rn-page-size-label { margin-right: 0.25rem; color: var(--rn-text-muted); font-size: 0.75rem; }
+
+/* Pagination (Pagy's series nav) */
+.rn-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rn-border-light);
+}
+.rn-pagination .pagy { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem; }
+.rn-pagination .pagy a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius-sm);
+  background: var(--rn-surface);
+  color: var(--rn-text-secondary);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: all var(--rn-transition);
+}
+.rn-pagination .pagy a[href]:hover { border-color: var(--rn-primary); color: var(--rn-primary); }
+.rn-pagination .pagy a[href]:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+.rn-pagination .pagy a[aria-current="page"] { border-color: var(--rn-primary); background: var(--rn-primary); color: #fff; font-weight: 600; }
+.rn-pagination .pagy a[aria-disabled="true"]:not([aria-current]) { opacity: 0.4; cursor: default; }
+
+/* Card layout (narrow screens): source stays on one labelled line. */
+@media (max-width: 1100px) {
+  .rn-exceptions-table .rn-source { flex-direction: row; align-items: baseline; gap: 0; }
+  .rn-exceptions-table .rn-source > span { overflow: hidden; text-overflow: ellipsis; }
+  .rn-exceptions-table .rn-col-source,
+  .rn-exceptions-table .rn-col-count,
+  .rn-exceptions-table .rn-col-time { align-self: center; }
+  .rn-exceptions-table .rn-col-count .rn-occurrence-count { margin-top: 0; }
+}

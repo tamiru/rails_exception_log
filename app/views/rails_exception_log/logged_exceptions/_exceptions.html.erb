@@ -25,12 +25,13 @@
         </span>
 
         <%# Page size selector %>
-        <div class="flex items-center gap-1">
-          <span class="text-xs" style="color: var(--rn-text-muted)">Show</span>
-          <% RailsExceptionLog.configuration.page_size_options.each do |size| %>
+        <div class="rn-page-size" role="group" aria-label="Rows per page">
+          <span class="rn-page-size-label">Per page</span>
+          <% page_size_choices.each do |size| %>
             <%= link_to size.to_s,
               logged_exceptions_path(params_filters.merge(per_page: size)),
-              class: "rn-btn rn-btn-xs #{params[:per_page].to_i == size || (!params[:per_page] && size == RailsExceptionLog.configuration.per_page) ? 'rn-btn-primary' : 'rn-btn-ghost'}",
+              class: "rn-btn rn-btn-xs #{size == page_size ? 'rn-btn-primary' : 'rn-btn-ghost'}",
+              aria: { current: (size == page_size ? "true" : nil) },
               data: { turbo_frame: "exceptions" } %>
           <% end %>
         </div>
@@ -58,15 +59,25 @@
         <caption class="sr-only">Logged application exceptions</caption>
         <thead>
           <tr>
-            <th class="rn-col-exception <%= sort_header_class(:exception_class) %>"><%= sort_link @q, :exception_class, "Exception" %></th>
-            <th class="rn-col-source <%= sort_header_class(:controller_name) %>"><%= sort_link @q, :controller_name, "Source" %></th>
-            <th class="rn-col-message <%= sort_header_class(:message) %>"><%= sort_link @q, :message, "Message" %></th>
+            <%= content_tag :th, sort_link(@q, :exception_class, "Exception", hide_indicator: true),
+                        class: "rn-col-exception #{sort_header_class(:exception_class)}",
+                        aria: { sort: sort_header_aria(:exception_class) } %>
+            <%= content_tag :th, sort_link(@q, :controller_name, "Source", hide_indicator: true),
+                        class: "rn-col-source #{sort_header_class(:controller_name)}",
+                        aria: { sort: sort_header_aria(:controller_name) } %>
+            <%= content_tag :th, sort_link(@q, :message, "Message", hide_indicator: true),
+                        class: "rn-col-message #{sort_header_class(:message)}",
+                        aria: { sort: sort_header_aria(:message) } %>
             <% if exception_feature?(:occurrence_count) %>
-              <th class="rn-col-count <%= sort_header_class(:occurrence_count) %>"><%= sort_link @q, :occurrence_count, "Count" %></th>
+              <%= content_tag :th, sort_link(@q, :occurrence_count, "Count", hide_indicator: true),
+                        class: "rn-col-count #{sort_header_class(:occurrence_count)}",
+                        aria: { sort: sort_header_aria(:occurrence_count) } %>
             <% else %>
               <th class="rn-col-count">Count</th>
             <% end %>
-            <th class="rn-col-time <%= sort_header_class(:created_at) %>"><%= sort_link @q, :created_at, "Last Seen" %></th>
+            <%= content_tag :th, sort_link(@q, :created_at, "Last Seen", hide_indicator: true),
+                        class: "rn-col-time #{sort_header_class(:created_at)}",
+                        aria: { sort: sort_header_aria(:created_at) } %>
             <th class="rn-col-actions"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -104,10 +115,10 @@
 
               <%# Source (controller + action) %>
               <td class="rn-col-source">
-                <div class="rn-source" title="<%= [exception.controller_name, exception.action_name].compact.join('#') %>">
-                  <span class="rn-mono text-xs" style="color: var(--rn-text-secondary)"><%= exception.controller_name.presence || "—" %></span>
+                <div class="rn-source rn-mono" title="<%= [exception.controller_name, exception.action_name].compact.join('#') %>">
+                  <span class="rn-source-controller"><%= exception.controller_name.presence || "—" %></span>
                   <% if exception.action_name.present? %>
-                    <span class="rn-mono text-xs" style="color: var(--rn-text-muted)">#<%= exception.action_name %></span>
+                    <span class="rn-source-action">#<%= exception.action_name %></span>
                   <% end %>
                 </div>
               </td>
@@ -128,7 +139,10 @@
               </td>
 
               <%# Time (relative) %>
-              <td class="rn-col-time rn-date"><%= pretty_exception_date(exception) %></td>
+              <td class="rn-col-time rn-date">
+                <time datetime="<%= exception.created_at.iso8601 %>"
+                      title="<%= exception.created_at.strftime("%B %d, %Y at %I:%M:%S %p %Z") %>"><%= pretty_exception_date(exception) %></time>
+              </td>
 
               <%# Actions (delete on hover) %>
               <td class="rn-col-actions" style="text-align: right">

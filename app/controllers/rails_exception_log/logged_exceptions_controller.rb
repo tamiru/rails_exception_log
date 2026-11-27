@@ -9,7 +9,8 @@ module RailsExceptionLog
       occurrence_count_gteq platform_eq priority_eq s
     ].freeze
 
-    helper_method :exception_feature?, :params_filters, :prev_exception, :next_exception
+    helper_method :exception_feature?, :params_filters, :prev_exception, :next_exception,
+                  :page_size, :page_size_choices
 
     def index
       load_exception_index
@@ -85,6 +86,14 @@ module RailsExceptionLog
       requested = params[:per_page].to_i
       options = RailsExceptionLog.configuration.page_size_options
       options.include?(requested) ? requested : (RailsExceptionLog.configuration.per_page || 30)
+    end
+
+    # The page-size buttons always include the size in effect, so one of them
+    # is shown as selected even when the configured default (30) is not
+    # among page_size_options.
+    def page_size_choices
+      default = RailsExceptionLog.configuration.per_page || 30
+      (RailsExceptionLog.configuration.page_size_options + [default]).uniq.sort
     end
 
     def load_exception_index

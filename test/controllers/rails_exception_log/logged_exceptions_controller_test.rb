@@ -222,6 +222,25 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select "a.rn-row-link[data-turbo-frame='_top'][href='/rails_exception_log/logged_exceptions/#{@exception.id}?status_filter=active']"
   end
 
+  test "the page size in effect is the selected one, even when it is the default" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select ".rn-page-size a[aria-current='true']", text: "30"
+    assert_select ".rn-page-size a[aria-current]", count: 1
+
+    get "/rails_exception_log/logged_exceptions", params: { per_page: 50 }
+    assert_select ".rn-page-size a[aria-current='true']", text: "50"
+  end
+
+  test "the sorted column is announced once and Ransack's text arrow is hidden" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select "th.rn-col-time[aria-sort='descending'] a", text: "Last Seen"
+    assert_select "th[aria-sort]", count: 1
+    assert_not_includes response.body, "&#9660;"
+
+    get "/rails_exception_log/logged_exceptions", params: { q: { s: "exception_class asc" } }
+    assert_select "th.rn-col-exception[aria-sort='ascending']"
+  end
+
   test "deleting from the detail page returns to the filtered list" do
     delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
 
