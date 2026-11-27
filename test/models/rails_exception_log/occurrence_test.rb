@@ -28,7 +28,7 @@ class RailsExceptionLog::OccurrenceTest < ActiveSupport::TestCase
     RailsExceptionLog::LoggedException.persist_capture(@attributes)
 
     assert_equal 2, exception.occurrences.count
-    assert exception.occurrences.all? { |occurrence| occurrence.occurred_at > 30.days.ago }
+    assert(exception.occurrences.all? { |occurrence| occurrence.occurred_at > 30.days.ago })
   end
 
   test "daily_counts buckets the last seven days, oldest first, in UTC days" do
