@@ -1,10 +1,11 @@
 module RailsExceptionLog
   class WorkflowController < ApplicationController
+    helper RailsExceptionLog::LoggedExceptionsHelper
     before_action :find_exception, except: :bulk
 
     PRIORITIES = %w[critical high medium low].freeze
     BULK_COLUMNS = { "mute" => "muted", "unmute" => "muted", "priority" => "priority",
-                     "assign" => "assigned_to" }.freeze
+                     "assign" => "assigned_to", "resolve" => "resolved_at", "reopen" => "resolved_at" }.freeze
     BULK_LIMIT = 500
 
     # POST /rails_exception_log/logged_exceptions/:id/assign
@@ -58,6 +59,18 @@ module RailsExceptionLog
       end
     end
 
+    # POST /rails_exception_log/logged_exceptions/:id/resolve
+    def resolve
+      @exception.resolve!(author: current_author)
+      respond_with_workflow_panel("Resolved")
+    end
+
+    # POST /rails_exception_log/logged_exceptions/:id/reopen
+    def reopen
+      @exception.reopen!(author: current_author)
+      respond_with_workflow_panel("Reopened")
+    end
+
     # POST /rails_exception_log/logged_exceptions/:id/comment
     def add_comment
       @exception.add_comment(author: current_author, body: params[:body], comment_type: params[:comment_type] || "comment")
@@ -84,6 +97,25 @@ module RailsExceptionLog
 
     private
 
+    # Resolve and reopen change the header badges as well as the panel, so
+    # their turbo stream replaces both.
+    def respond_with_workflow_panel(notice)
+      respond_to do |format|
+        format.turbo_stream do
+          render turbo_stream: [
+            turbo_stream.replace("workflow-panel", partial: "rails_exception_log/logged_exceptions/workflow_panel",
+                                                   locals: { exception: @exception }),
+            turbo_stream.update("rn-detail-badges", helpers.status_badges_for(@exception)),
+            turbo_stream.replace("rn-resolution-button",
+                                 partial: "rails_exception_log/logged_exceptions/resolution_button",
+                                 locals: { exception: @exception })
+          ]
+        end
+        format.html { redirect_back fallback_location: logged_exception_path(@exception), notice: notice }
+        format.json { render json: { status: "ok", resolved: @exception.resolved? } }
+      end
+    end
+
     def apply_bulk_action(exceptions)
       count = exceptions.size
       label = "#{count} #{'exception'.pluralize(count)}"
@@ -102,6 +134,12 @@ module RailsExceptionLog
       when "unmute"
         each_in_transaction(exceptions) { |exception| exception.unmute!(author: current_author) }
         "Unmuted #{label}."
+      when "resolve"
+        each_in_transaction(exceptions) { |exception| exception.resolve!(author: current_author) }
+        "Resolved #{label}."
+      when "reopen"
+        each_in_transaction(exceptions) { |exception| exception.reopen!(author: current_author) }
+        "Reopened #{label}."
       when "priority"
         return "Choose a priority." unless PRIORITIES.include?(params[:priority])
 

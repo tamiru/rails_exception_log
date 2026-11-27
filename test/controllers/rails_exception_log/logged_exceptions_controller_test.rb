@@ -304,6 +304,33 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select ".rn-filter-pill", text: /Class:\s*RuntimeError/
   end
 
+  test "status filters separate resolved, regressed and active exceptions" do
+    resolved = RailsExceptionLog::LoggedException.create!(exception_class: "FixedError", resolved_at: 1.hour.ago)
+    regressed = RailsExceptionLog::LoggedException.create!(exception_class: "BackAgainError", regressed_at: 1.minute.ago)
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "resolved" }
+    assert_select "tbody tr[data-url]", count: 1
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(resolved)} .rn-pill", text: "Resolved"
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "regressed" }
+    assert_select "tbody tr[data-url]", count: 1
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(regressed)} .rn-pill", text: "Regressed"
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "active" }
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(resolved)}", count: 0
+    assert_select ".rn-quick-filter", text: /Regressed/
+  end
+
+  test "the detail page offers Resolve, or Reopen once resolved" do
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select "#rn-resolution-button form[action='/rails_exception_log/logged_exceptions/#{@exception.id}/resolve']"
+
+    @exception.resolve!(author: "amina")
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}"
+    assert_select "#rn-resolution-button form[action='/rails_exception_log/logged_exceptions/#{@exception.id}/reopen']"
+    assert_select "#rn-detail-badges .rn-pill", text: "Resolved"
+  end
+
   test "deleting from the detail page returns to the filtered list" do
     delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
 

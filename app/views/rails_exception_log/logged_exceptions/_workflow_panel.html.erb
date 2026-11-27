@@ -12,6 +12,15 @@
   <div class="p-4 space-y-4">
     <%# Status Badges %>
     <div class="flex flex-wrap gap-2">
+      <% if exception.resolved? %>
+        <span class="rn-badge rn-badge-success" title="<%= "by #{exception.resolved_by}" if exception.resolved_by.present? %>">
+          Resolved <%= exception.resolved_at.strftime("%b %d %H:%M") %>
+        </span>
+      <% elsif exception.regressed? %>
+        <span class="rn-badge rn-badge-danger">
+          Regressed <%= exception.regressed_at.strftime("%b %d %H:%M") %>
+        </span>
+      <% end %>
       <% if exception.muted? %>
         <span class="rn-badge" style="background: var(--rn-bg-secondary); color: var(--rn-text-muted)">
           🔇 Muted

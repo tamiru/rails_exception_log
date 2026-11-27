@@ -167,6 +167,7 @@ module RailsExceptionLog
 
       case params[:status_filter]
       when "active"
+        scope = scope.unresolved if exception_feature?(:resolved_at)
         exception_feature?(:muted) && exception_feature?(:snoozed_until) ? scope.active : scope
       when "muted"
         exception_feature?(:muted) ? scope.muted : scope
@@ -174,6 +175,12 @@ module RailsExceptionLog
         exception_feature?(:snoozed_until) ? scope.snoozed : scope
       when "unassigned"
         exception_feature?(:assigned_to) ? scope.unassigned : scope
+      when "resolved"
+        exception_feature?(:resolved_at) ? scope.resolved : scope
+      when "unresolved"
+        exception_feature?(:resolved_at) ? scope.unresolved : scope
+      when "regressed"
+        exception_feature?(:regressed_at) ? scope.regressed : scope
       else
         scope
       end

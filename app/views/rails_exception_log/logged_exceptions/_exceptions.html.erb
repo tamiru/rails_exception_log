@@ -98,6 +98,11 @@
       <span class="rn-bulk-count" data-rails_exception_log-target="bulkCount" aria-live="polite">0 selected</span>
 
       <div class="rn-bulk-actions">
+        <% if exception_feature?(:resolved_at) %>
+          <button type="submit" name="bulk_action" value="resolve" class="rn-btn rn-btn-ghost rn-btn-sm">Resolve</button>
+          <button type="submit" name="bulk_action" value="reopen" class="rn-btn rn-btn-ghost rn-btn-sm">Reopen</button>
+        <% end %>
+
         <% if exception_feature?(:muted) %>
           <button type="submit" name="bulk_action" value="mute" class="rn-btn rn-btn-ghost rn-btn-sm">Mute</button>
           <button type="submit" name="bulk_action" value="unmute" class="rn-btn rn-btn-ghost rn-btn-sm">Unmute</button>

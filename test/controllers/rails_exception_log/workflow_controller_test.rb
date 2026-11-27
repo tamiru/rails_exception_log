@@ -68,6 +68,28 @@ class RailsExceptionLog::WorkflowControllerTest < ActionDispatch::IntegrationTes
     assert_redirected_to "/rails_exception_log/logged_exceptions"
   end
 
+  test "resolve and reopen from the detail page update the button and badges in place" do
+    post "/rails_exception_log/logged_exceptions/#{@first.id}/resolve", as: :turbo_stream
+
+    assert @first.reload.resolved?
+    assert_includes response.body, 'target="rn-resolution-button"'
+    assert_includes response.body, "Reopen"
+    assert_includes response.body, 'target="rn-detail-badges"'
+
+    post "/rails_exception_log/logged_exceptions/#{@first.id}/reopen"
+    assert_redirected_to "/rails_exception_log/logged_exceptions/#{@first.id}"
+    assert_not @first.reload.resolved?
+  end
+
+  test "bulk resolve resolves only the ticked rows" do
+    post "/rails_exception_log/logged_exceptions/bulk",
+         params: { ids: [@first.id, @second.id], bulk_action: "resolve" }
+
+    assert_equal "Resolved 2 exceptions.", flash[:notice]
+    assert @first.reload.resolved?
+    assert_not @untouched.reload.resolved?
+  end
+
   test "bulk with nothing ticked changes nothing" do
     post "/rails_exception_log/logged_exceptions/bulk", params: { bulk_action: "delete" }
 

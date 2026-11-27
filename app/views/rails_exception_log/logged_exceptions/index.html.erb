@@ -82,10 +82,7 @@
           <div class="rn-filter-group">
             <label>Status</label>
             <%= select_tag :status_filter,
-              options_for_select([
-                ["Any status", ""], ["Active", "active"], ["Muted", "muted"],
-                ["Snoozed", "snoozed"], ["Unassigned", "unassigned"]
-              ], params[:status_filter]),
+              options_for_select(status_filter_options, params[:status_filter]),
               class: "rn-select", data: { action: "change->rails_exception_log#submit" } %>
           </div>
         <% end %>

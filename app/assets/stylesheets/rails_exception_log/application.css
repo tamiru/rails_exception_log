@@ -2389,6 +2389,7 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
 .rn-pill-danger { background: var(--rn-danger-light); color: var(--rn-danger); border-color: var(--rn-danger-ring); }
 .rn-pill-warning { background: var(--rn-warning-light); color: var(--rn-warning-text); }
 .rn-pill-info { background: var(--rn-info-light); color: var(--rn-info); }
+.rn-pill-success { background: var(--rn-success-light); color: var(--rn-success); }
 .rn-pill-muted { background: var(--rn-bg-secondary); color: var(--rn-text-secondary); border-color: var(--rn-border); }
 .rn-row-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
 
@@ -2686,3 +2687,15 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
   color: var(--rn-text-muted);
   font-size: 0.75rem;
 }
+
+/* ─── Resolve / reopen ──────────────────────────────────────── */
+.rn-detail-badges { display: contents; }
+.rn-resolution-button { display: inline-flex; }
+.rn-resolution-button form { display: inline-flex; margin: 0; }
+.rn-resolution-button .rn-btn { gap: 0.25rem; }
+.rn-btn-success { background: var(--rn-success); color: #fff; }
+.rn-btn-success:hover { filter: brightness(0.95); text-decoration: none; }
+.rn-btn-bordered { border: 1px solid var(--rn-border); background: var(--rn-surface); }
+.rn-btn-bordered:hover { border-color: var(--rn-primary); color: var(--rn-primary); }
+.rn-btn-success:focus-visible,
+.rn-btn-bordered:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }

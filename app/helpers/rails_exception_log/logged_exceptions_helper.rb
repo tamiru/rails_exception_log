@@ -160,6 +160,16 @@ module RailsExceptionLog
       pills
     end
 
+    # Statuses for the filter select; resolution states only once the app
+    # has the columns for them.
+    def status_filter_options
+      options = [["Any status", ""], ["Active", "active"]]
+      if exception_feature?(:resolved_at)
+        options += [["Unresolved", "unresolved"], ["Resolved", "resolved"], ["Regressed", "regressed"]]
+      end
+      options + [["Muted", "muted"], ["Snoozed", "snoozed"], ["Unassigned", "unassigned"]]
+    end
+
     # One-click shortcuts for the filters people reach for most, so they do
     # not have to open the filter panel. Each chip is shaped like a filter
     # pill, so the same helper removes it; chips for columns the host app's
@@ -172,6 +182,7 @@ module RailsExceptionLog
       if exception_feature?(:assigned_to)
         chips << { label: "Unassigned", key: "status_filter", value: "unassigned" }
       end
+      chips << { label: "Regressed", key: "status_filter", value: "regressed" } if exception_feature?(:regressed_at)
       chips << { label: "Muted", key: "status_filter", value: "muted" } if exception_feature?(:muted)
 
       chips.each { |chip| chip[:active] = quick_filter_value(chip) == chip[:value] }

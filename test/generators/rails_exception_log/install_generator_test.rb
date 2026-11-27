@@ -50,6 +50,18 @@ class RailsExceptionLog::Generators::InstallGeneratorTest < Rails::Generators::T
     assert_match(/skip.*occurrence history migration already present/, output)
   end
 
+  test "adds the resolution migration once" do
+    run_generator
+    assert_migration "db/migrate/add_resolution_to_rails_exception_log_exceptions.rb" do |content|
+      assert_match(/add_column :rails_exception_log_exceptions, :resolved_at, :datetime/, content)
+      assert_nothing_raised { RubyVM::InstructionSequence.compile(content) }
+    end
+
+    output = run_generator
+    assert_equal 1, Dir[path("db/migrate/*_add_resolution_to_rails_exception_log_exceptions.rb")].size
+    assert_match(/skip.*resolution migration already present/, output)
+  end
+
   test "does not touch controllers: the middleware records request errors" do
     run_generator
 
