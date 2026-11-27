@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Separate list and detail pages** — Clicking a row (or pressing Enter on
+  the selected row) opens the exception on its own page instead of a panel
+  above the table. The exception name and the open icon are real links, so
+  Cmd/Ctrl-click and middle-click open a new tab.
+- **Detail page** — Breadcrumbs, a Back button and previous/next arrows in the
+  header all keep the list's filters. The tab bar stays pinned while you
+  scroll, the open tab is kept in the URL (`#backtrace`) so a reload or a
+  shared link lands on it, and the Workflow tab is always available.
+- **Keyboard** — On the detail page, `p`/`n` step through exceptions, `1`–`9`
+  switch tabs and `Esc` goes back to the list. The shortcuts dialog lists only
+  the keys that apply to the current page.
+- Deleting from the detail page returns to the filtered list.
+
+### Fixed
+- The Cause Chain, Breadcrumbs, System Health and Workflow tabs rendered
+  outside the padded detail body.
+- Deleting a row from the list no longer risks following the link as a plain
+  GET, because row links are no longer cut off from Turbo.
+
 ## [2.3.0] - 2026-10-31
 
 ### Changed

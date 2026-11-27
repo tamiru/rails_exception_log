@@ -36,11 +36,6 @@ module RailsExceptionLog
       @exception = LoggedException.find(params[:id])
       load_nav_exceptions if RailsExceptionLog.configuration.enable_navigation
       load_exception_tabs
-
-      respond_to do |format|
-        format.turbo_stream
-        format.html
-      end
     end
 
     def destroy
@@ -49,7 +44,7 @@ module RailsExceptionLog
 
       respond_to do |format|
         format.turbo_stream
-        format.html { redirect_to logged_exceptions_path, status: :see_other }
+        format.html { redirect_to logged_exceptions_path(params_filters), status: :see_other }
       end
     end
 

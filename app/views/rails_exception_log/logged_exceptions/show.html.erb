@@ -1,3 +1,23 @@
-<%= turbo_frame_tag "exception-details" do %>
-  <%= render "show" %>
-<% end %>
+<% page_title [@exception.exception_class, t(".title")].compact_blank.join(" · ") %>
+
+<div class="space-y-4"
+     data-controller="rails_exception_log"
+     data-rails_exception_log-shortcuts-value="<%= RailsExceptionLog.configuration.keyboard_shortcuts %>">
+
+  <%# ─── Breadcrumbs ─────────────────────────────────────────── %>
+  <nav class="rn-breadcrumbs" aria-label="Breadcrumb">
+    <a href="<%= root_path %>" class="rn-breadcrumb">Dashboard</a>
+    <span class="rn-breadcrumb-sep">/</span>
+    <%= link_to t(".exceptions"), logged_exceptions_path(params_filters), class: "rn-breadcrumb" %>
+    <span class="rn-breadcrumb-sep">/</span>
+    <span class="rn-breadcrumb-current" aria-current="page"><%= breakable_class_name(@exception.exception_class) %></span>
+  </nav>
+
+  <%# ─── Exception Detail ────────────────────────────────────── %>
+  <section class="rn-card rn-detail-page" aria-labelledby="rn-detail-title">
+    <%= render "show" %>
+  </section>
+
+  <%# ─── Keyboard Shortcuts Dialog ───────────────────────────── %>
+  <%= render "shortcuts", context: :detail if RailsExceptionLog.configuration.keyboard_shortcuts %>
+</div>

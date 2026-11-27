@@ -2429,3 +2429,29 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
   .rn-meta-item-wide { grid-column: 1 / -1; }
   .rn-kv-row { grid-template-columns: minmax(0, 1fr); gap: 0.125rem; }
 }
+
+/* ─── Exception detail page ─────────────────────────────────── */
+/* The detail renders as its own page: the card clips its corners
+   without becoming a scroll container, so the tab bar can stay
+   pinned under the top bar while the page scrolls. */
+.rn-detail-page { padding: 0; overflow: clip; }
+.rn-detail-page .rn-detail-panel { overflow: visible; border-left: none; }
+.rn-detail-page .rn-detail-header { position: static; }
+.rn-detail-page .rn-tabs {
+  position: sticky;
+  top: 3.5rem;
+  z-index: 6;
+  background: var(--rn-surface);
+}
+.rn-detail-stepper { display: inline-flex; align-items: center; gap: 0.125rem; }
+.rn-detail-stepper .rn-icon-btn { border: 1px solid var(--rn-border); }
+.rn-detail-stepper .rn-icon-btn:hover { border-color: var(--rn-primary); color: var(--rn-primary); text-decoration: none; }
+.rn-icon-btn.is-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.rn-icon-btn:focus-visible,
+.rn-row-link:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 2px; }
+
+/* ─── Exception list: rows open the detail page ─────────────── */
+.rn-exceptions-table tbody tr[data-url] { cursor: pointer; }
+.rn-exceptions-table .rn-row-link { text-decoration: none; }
+.rn-exceptions-table tr:hover .rn-row-link,
+.rn-exceptions-table .rn-row-link:hover { color: var(--rn-primary); text-decoration: none; }

@@ -79,14 +79,18 @@ export default class extends Controller {
         break
       case "Escape":
         event.preventDefault()
-        this.closeDetails(event)
-        this.closeShortcuts()
+        if (this.shortcutsOpen()) {
+          this.closeShortcuts()
+        } else {
+          this.leaveDetails()
+        }
         break
       case "?":
         event.preventDefault()
         this.toggleShortcuts()
         break
       case "1": case "2": case "3": case "4": case "5":
+      case "6": case "7": case "8": case "9":
         event.preventDefault()
         this.switchTabByIndex(parseInt(event.key) - 1)
         break
@@ -140,39 +144,36 @@ export default class extends Controller {
     this.refreshRows()
     if (this.selectedIndex < 0 || this.selectedIndex >= this.rows.length) return
 
-    const row = this.rows[this.selectedIndex]
-    const url = row.dataset.url
-    if (url) {
-      // Fetch and load into the detail panel
-      this.selectRow({ currentTarget: row, preventDefault: () => {} })
-    }
+    const url = this.rows[this.selectedIndex].dataset.url
+    if (url) this.visit(url)
   }
 
   // ─── Row Selection ────────────────────────────────────────
 
+  /**
+   * Opens the clicked row's exception on its own detail page. Clicks on a
+   * link or button inside the row are left to that control, and a modifier
+   * click opens the page in a new tab, as it would for a plain link.
+   */
   selectRow(event) {
-    event.preventDefault()
-    const row = event.currentTarget
-    const url = row.dataset.url
+    if (event.target?.closest?.("a, button, input, select, textarea, label")) return
+
+    const url = event.currentTarget.dataset.url
     if (!url) return
 
-    // Highlight selected row
-    this.refreshRows()
-    this.rows.forEach(r => r.classList.remove("selected"))
-    row.classList.add("selected")
-
-    // Show detail panel
-    const detailPanel = document.getElementById("exception-detail-desktop")
-    if (detailPanel) {
-      detailPanel.hidden = false
-      detailPanel.classList.remove("hidden")
+    event.preventDefault()
+    if (event.metaKey || event.ctrlKey || event.button === 1) {
+      window.open(url, "_blank", "noopener")
+    } else {
+      this.visit(url)
     }
+  }
 
-    // Load content via Turbo
-    const frame = document.getElementById("exception-details")
-    if (frame) {
-      frame.innerHTML = ""
-      frame.src = url
+  visit(url) {
+    if (window.Turbo?.visit) {
+      window.Turbo.visit(url)
+    } else {
+      window.location.assign(url)
     }
   }
 
@@ -180,38 +181,22 @@ export default class extends Controller {
     event.stopPropagation()
   }
 
-  // ─── Close Details ────────────────────────────────────────
+  // ─── Leaving the Detail Page ──────────────────────────────
 
-  closeDetails(event) {
-    event.preventDefault()
+  /**
+   * Esc goes back to the (filtered) list from a detail page; on the list
+   * itself it clears the keyboard selection.
+   */
+  leaveDetails() {
+    const back = this.element.querySelector("[data-rn-nav='back']")
+    if (back) {
+      back.click()
+      return
+    }
 
-    // Deselect all rows
     this.refreshRows()
     this.rows.forEach(r => r.classList.remove("selected"))
     this.selectedIndex = -1
-
-    // Hide detail panel
-    const detailPanel = document.getElementById("exception-detail-desktop")
-    if (detailPanel) {
-      detailPanel.hidden = true
-      detailPanel.classList.add("hidden")
-    }
-
-    // Clear the turbo frame
-    const frame = document.getElementById("exception-details")
-    if (frame) {
-      frame.innerHTML = `
-        <div class="text-center py-12">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-bg-secondary)">
-            <svg class="w-5 h-5" style="color: var(--rn-text-muted)" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <p class="mt-2 text-xs" style="color: var(--rn-text-muted)">Select an exception to view details</p>
-          <p class="mt-1 text-xs" style="color: var(--rn-text-muted)">Click a row or press <span class="rn-kbd">↓</span> <span class="rn-kbd">↑</span> to navigate</p>
-        </div>
-      `
-    }
   }
 
   // ─── Tab Switching ────────────────────────────────────────
@@ -221,13 +206,10 @@ export default class extends Controller {
     this.activateTab(tabName)
   }
 
+  // The tabs belong to the detail controller; clicking keeps both in step.
   switchTabByIndex(index) {
-    if (!this.hasTabsTarget) return
-    const tabs = this.tabsTarget.querySelectorAll(".rn-tab")
-    if (index >= 0 && index < tabs.length) {
-      const tabName = tabs[index].dataset.flTabParam || tabs[index].dataset.flTab
-      this.activateTab(tabName)
-    }
+    const tabs = this.element.querySelectorAll(".rn-tabs .rn-tab")
+    if (index >= 0 && index < tabs.length) tabs[index].click()
   }
 
   activateTab(tabName) {
@@ -267,6 +249,10 @@ export default class extends Controller {
 
   // ─── Keyboard Shortcuts Dialog ────────────────────────────
 
+  shortcutsOpen() {
+    return this.hasShortcutsDialogTarget && this.shortcutsDialogTarget.classList.contains("open")
+  }
+
   toggleShortcuts() {
     if (!this.hasShortcutsDialogTarget) return
     const isOpen = this.shortcutsDialogTarget.classList.contains("open")
@@ -288,18 +274,11 @@ export default class extends Controller {
   // ─── Navigation (prev/next) ───────────────────────────────
 
   navigateToPrev() {
-    const prevLink = document.querySelector(".rn-nav-link[href*='logged_exceptions']")
-    if (prevLink && prevLink.querySelector(".rn-nav-link-label")?.textContent === "Previous") {
-      prevLink.click()
-    }
+    this.element.querySelector("[data-rn-nav='prev']")?.click()
   }
 
   navigateToNext() {
-    const links = document.querySelectorAll(".rn-nav-link[href*='logged_exceptions']")
-    const nextLink = Array.from(links).find(link =>
-      link.querySelector(".rn-nav-link-label")?.textContent === "Next"
-    )
-    if (nextLink) nextLink.click()
+    this.element.querySelector("[data-rn-nav='next']")?.click()
   }
 
   // ─── Copy to Clipboard ───────────────────────────────────

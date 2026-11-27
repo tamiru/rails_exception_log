@@ -38,7 +38,7 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
   test "index displays exceptions" do
     get "/rails_exception_log/logged_exceptions"
     assert_select "table"
-    assert_select "span", text: "RuntimeError"
+    assert_select "a.rn-exception-name", text: "RuntimeError"
     assert_select "table.rn-exceptions-table td.rn-col-message .rn-msg[title='Test error message']"
     assert_select "th.sortable a", minimum: 5
     assert_select "th.rn-col-platform, th.rn-col-workflow", count: 0
@@ -201,9 +201,31 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select ".rn-row-badges .rn-pill", text: "Critical"
   end
 
-  test "show as turbo stream" do
-    get "/rails_exception_log/logged_exceptions/#{@exception.id}", as: :turbo_stream
+  test "show is a page of its own that leads back to the filtered list" do
+    get "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
+
     assert_response :success
+    assert_select "turbo-frame#exception-details", count: 0
+    assert_select "h1#rn-detail-title", text: @exception.exception_class
+    assert_select ".rn-breadcrumbs a.rn-breadcrumb[href='/rails_exception_log/logged_exceptions?status_filter=active']", text: "Exceptions"
+    assert_select "a[data-rn-nav='back'][href='/rails_exception_log/logged_exceptions?status_filter=active']"
+    assert_select "[role='tablist'] [role='tab'][aria-selected='true']", text: "Overview"
+    assert_select ".rn-detail-body [data-rn-tab-content='workflow']"
+  end
+
+  test "index opens each exception on its own page instead of an inline panel" do
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "active" }
+
+    assert_select "#exception-detail-desktop", count: 0
+    assert_select "turbo-frame#exception-details", count: 0
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(@exception)}[data-url='/rails_exception_log/logged_exceptions/#{@exception.id}?status_filter=active']"
+    assert_select "a.rn-row-link[data-turbo-frame='_top'][href='/rails_exception_log/logged_exceptions/#{@exception.id}?status_filter=active']"
+  end
+
+  test "deleting from the detail page returns to the filtered list" do
+    delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
+
+    assert_redirected_to "/rails_exception_log/logged_exceptions?status_filter=active"
   end
 
   test "destroy removes exception" do
