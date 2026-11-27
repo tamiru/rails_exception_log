@@ -169,6 +169,7 @@ export default class extends Controller {
     }
   }
 
+  /** Navigates with Turbo when the bundle loaded it, so the page swap stays fast. */
   visit(url) {
     if (window.Turbo?.visit) {
       window.Turbo.visit(url)
@@ -249,6 +250,7 @@ export default class extends Controller {
 
   // ─── Keyboard Shortcuts Dialog ────────────────────────────
 
+  /** Lets Esc close the shortcuts dialog first instead of leaving the page. */
   shortcutsOpen() {
     return this.hasShortcutsDialogTarget && this.shortcutsDialogTarget.classList.contains("open")
   }
@@ -273,10 +275,12 @@ export default class extends Controller {
 
   // ─── Navigation (prev/next) ───────────────────────────────
 
+  /** p / ← follows the detail page's "previous" link, wherever it sits. */
   navigateToPrev() {
     this.element.querySelector("[data-rn-nav='prev']")?.click()
   }
 
+  /** n / → follows the detail page's "next" link, wherever it sits. */
   navigateToNext() {
     this.element.querySelector("[data-rn-nav='next']")?.click()
   }
