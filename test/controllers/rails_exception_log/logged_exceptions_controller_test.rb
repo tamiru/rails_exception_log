@@ -241,6 +241,26 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select "th.rn-col-exception[aria-sort='ascending']"
   end
 
+  test "quick filter chips switch a filter on and off and keep the others" do
+    get "/rails_exception_log/logged_exceptions", params: { per_page: 50 }
+    assert_select ".rn-quick-filter", text: /Today/
+    assert_select ".rn-quick-filter[href='/rails_exception_log/logged_exceptions?per_page=50&q%5Bpriority_eq%5D=critical']",
+                  text: /Critical/
+    assert_select ".rn-quick-filter[aria-current]", count: 0
+
+    get "/rails_exception_log/logged_exceptions", params: { status_filter: "muted", per_page: 50 }
+    assert_select ".rn-quick-filter.is-active[aria-current='true']", text: /Muted/
+    assert_select ".rn-quick-filter.is-active[href='/rails_exception_log/logged_exceptions?per_page=50']"
+    assert_select ".rn-quick-filter[href*='status_filter=unassigned']", text: /Unassigned/
+  end
+
+  test "each row has a checkbox tied to the bulk form" do
+    get "/rails_exception_log/logged_exceptions"
+    assert_select "form#rn-bulk-form[action='/rails_exception_log/logged_exceptions/bulk'][hidden]"
+    assert_select "input[type='checkbox'][name='ids[]'][form='rn-bulk-form'][value='#{@exception.id}']"
+    assert_select "#rn-bulk-form button[name='bulk_action']", minimum: 4
+  end
+
   test "deleting from the detail page returns to the filtered list" do
     delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
 

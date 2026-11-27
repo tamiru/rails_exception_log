@@ -5,6 +5,7 @@ RailsExceptionLog::Engine.routes.draw do
       match :query, via: %i[get post]
       post :destroy_all
       get :feed
+      post :bulk, to: "workflow#bulk"
     end
     member do
       post :assign, to: "workflow#assign"

@@ -159,6 +159,38 @@ module RailsExceptionLog
       pills
     end
 
+    # One-click shortcuts for the filters people reach for most, so they do
+    # not have to open the filter panel. Each chip is shaped like a filter
+    # pill, so the same helper removes it; chips for columns the host app's
+    # table lacks are left out.
+    def quick_filters
+      chips = [{ label: "Today", key: "date_ranges_filter", value: "1" }]
+      if exception_feature?(:priority)
+        chips << { label: "Critical", group: :q, key: "priority_eq", value: "critical" }
+      end
+      if exception_feature?(:assigned_to)
+        chips << { label: "Unassigned", key: "status_filter", value: "unassigned" }
+      end
+      chips << { label: "Muted", key: "status_filter", value: "muted" } if exception_feature?(:muted)
+
+      chips.each { |chip| chip[:active] = quick_filter_value(chip) == chip[:value] }
+    end
+
+    # A chip turns its filter on, or off again when it is already on, and
+    # keeps every other filter (but not the page, which may no longer exist).
+    def quick_filter_params(chip)
+      filters = filter_params_without(chip)
+      filters.delete("page")
+      return filters if chip[:active]
+
+      if chip[:group] == :q
+        filters["q"] = (filters["q"] || {}).merge(chip[:key] => chip[:value])
+      else
+        filters[chip[:key]] = chip[:value]
+      end
+      filters
+    end
+
     def filter_params_without(pill)
       filters = params_filters.deep_stringify_keys
 
@@ -170,6 +202,10 @@ module RailsExceptionLog
       end
 
       filters
+    end
+
+    def quick_filter_value(chip)
+      chip[:group] == :q ? params.dig(:q, chip[:key]).to_s : params[chip[:key]].to_s
     end
 
     def exception_occurrence_count(exception)

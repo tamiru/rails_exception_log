@@ -1,4 +1,20 @@
 <div id="exceptions-content" class="rn-exceptions-results overflow-hidden">
+  <%# ─── Quick Filters ──────────────────────────────────────── %>
+  <nav class="rn-quick-filters" aria-label="Quick filters">
+    <% quick_filters.each do |chip| %>
+      <%= link_to logged_exceptions_path(quick_filter_params(chip)),
+                  class: "rn-quick-filter#{' is-active' if chip[:active]}",
+                  aria: { current: (chip[:active] ? "true" : nil) },
+                  title: (chip[:active] ? "Remove the #{chip[:label]} filter" : "Show only #{chip[:label].downcase}"),
+                  data: { turbo_frame: "_top" } do %>
+        <% if chip[:active] %>
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+        <% end %>
+        <%= chip[:label] %>
+      <% end %>
+    <% end %>
+  </nav>
+
   <% if @exceptions.empty? %>
     <div class="py-16 text-center">
       <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style="background: var(--rn-success-light)">
@@ -53,12 +69,76 @@
       </div>
     </div>
 
+    <%# ─── Bulk Actions (shown once rows are ticked) ──────────── %>
+    <%= form_with url: bulk_logged_exceptions_path,
+                  id: "rn-bulk-form",
+                  class: "rn-bulk-bar",
+                  html: { hidden: true, "data-rails_exception_log-target" => "bulkBar" },
+                  data: { turbo_frame: "_top" } do %>
+      <%= hidden_field_tag :return_to, logged_exceptions_path(params_filters), id: nil %>
+      <span class="rn-bulk-count" data-rails_exception_log-target="bulkCount" aria-live="polite">0 selected</span>
+
+      <div class="rn-bulk-actions">
+        <% if exception_feature?(:muted) %>
+          <button type="submit" name="bulk_action" value="mute" class="rn-btn rn-btn-ghost rn-btn-sm">Mute</button>
+          <button type="submit" name="bulk_action" value="unmute" class="rn-btn rn-btn-ghost rn-btn-sm">Unmute</button>
+        <% end %>
+
+        <% if exception_feature?(:priority) %>
+          <div class="rn-bulk-group">
+            <%= select_tag :priority,
+                           options_for_select([["Critical", "critical"], ["High", "high"], ["Medium", "medium"], ["Low", "low"]]),
+                           include_blank: "Priority…",
+                           class: "rn-select rn-select-sm",
+                           id: "rn-bulk-priority",
+                           aria: { label: "Priority for the selected exceptions" } %>
+            <button type="submit" name="bulk_action" value="priority" class="rn-btn rn-btn-ghost rn-btn-sm">Set</button>
+          </div>
+        <% end %>
+
+        <% if exception_feature?(:assigned_to) %>
+          <div class="rn-bulk-group">
+            <%= text_field_tag :assigned_to, nil,
+                               class: "rn-input rn-input-sm",
+                               id: "rn-bulk-assignee",
+                               placeholder: "Assign to…",
+                               list: "rn-bulk-assignees",
+                               autocomplete: "off",
+                               aria: { label: "Assign the selected exceptions to" },
+                               data: { action: "keydown.enter->rails_exception_log#submitBulkAssign" } %>
+            <datalist id="rn-bulk-assignees">
+              <% @assignees.each do |name| %>
+                <option value="<%= name %>"></option>
+              <% end %>
+            </datalist>
+            <button type="submit" name="bulk_action" value="assign" class="rn-btn rn-btn-ghost rn-btn-sm" data-rn-bulk="assign">Assign</button>
+          </div>
+        <% end %>
+
+        <button type="submit"
+                name="bulk_action"
+                value="delete"
+                class="rn-btn rn-btn-ghost rn-btn-sm rn-bulk-delete"
+                data-action="click->rails_exception_log#confirmBulkDelete">Delete</button>
+        <button type="button"
+                class="rn-btn rn-btn-ghost rn-btn-sm"
+                data-action="click->rails_exception_log#clearSelection">Clear</button>
+      </div>
+    <% end %>
+
     <%# ─── Exception Table ────────────────────────────────────── %>
     <div class="rn-table-wrap">
       <table class="rn-table rn-exceptions-table">
         <caption class="sr-only">Logged application exceptions</caption>
         <thead>
           <tr>
+            <th class="rn-col-select">
+              <input type="checkbox"
+                     class="rn-checkbox"
+                     data-rails_exception_log-target="selectAll"
+                     data-action="change->rails_exception_log#toggleAll"
+                     aria-label="Select all exceptions on this page">
+            </th>
             <%= content_tag :th, sort_link(@q, :exception_class, "Exception", hide_indicator: true),
                         class: "rn-col-exception #{sort_header_class(:exception_class)}",
                         aria: { sort: sort_header_aria(:exception_class) } %>
@@ -91,6 +171,18 @@
                 data-url="<%= logged_exception_path(exception, params_filters) %>"
                 data-index="<%= index %>"
                 data-rails_exception_log-index-param="<%= index %>">
+
+              <%# Row selection for bulk actions %>
+              <td class="rn-col-select">
+                <input type="checkbox"
+                       class="rn-checkbox"
+                       name="ids[]"
+                       value="<%= exception.id %>"
+                       form="rn-bulk-form"
+                       data-rails_exception_log-target="rowCheckbox"
+                       data-action="change->rails_exception_log#updateBulk"
+                       aria-label="Select <%= exception.exception_class %>">
+              </td>
 
               <%# Exception class with severity indicator %>
               <td class="rn-col-exception">
