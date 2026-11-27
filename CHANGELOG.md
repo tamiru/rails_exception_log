@@ -52,6 +52,7 @@ before, minus the 7-day trend and Resolve.
   use tabular figures, and "Last seen" shows the full time on hover.
 
 ### Fixed
+- The customize generator handed out outdated sidebar and theme controllers.
 - Assigning, muting, setting priority or commenting raised an error in apps
   without a `current_user` method.
 - "Delete all", "Clear" and the retention cleanup left comments behind (or

@@ -29,6 +29,31 @@ jobs:
       - run: bin/rails app:db:prepare
       - run: bin/rails test
 
+  javascript:
+    name: JavaScript bundle is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Committed bundle matches the controllers
+        run: |
+          git diff --exit-code -- app/assets/javascripts/rails_exception_log/application.js || {
+            echo "::error::The prebuilt bundle is out of date. Run 'bun run build' and commit the result."
+            exit 1
+          }
+      - name: Customize generator copies match the controllers
+        run: |
+          for file in app/javascript/controllers/rails_exception_log*_controller.js; do
+            diff -u "$file" "lib/generators/rails_exception_log/templates/javascript/controllers/$(basename "$file")" || {
+              echo "::error::Copy $file into lib/generators/rails_exception_log/templates/javascript/controllers/"
+              exit 1
+            }
+          done
+
   databases:
     strategy:
       fail-fast: false

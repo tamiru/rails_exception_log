@@ -467,6 +467,19 @@ cd /path/to/rails_exception_log
 RAILS_ENV=test bundle exec rails test
 ```
 
+Rebuild the JavaScript bundle after changing anything in `app/javascript`
+(needs [Bun](https://bun.sh) 1.4.4, the version CI uses):
+
+```bash
+bun install
+bun run build
+```
+
+This writes `app/assets/javascripts/rails_exception_log/application.js`, the
+prebuilt asset the gem ships, so commit it with your change. Also copy changed
+controllers into `lib/generators/rails_exception_log/templates/javascript/controllers/`
+for the customize generator. CI fails if either is out of date.
+
 Build the gem:
 
 ```bash

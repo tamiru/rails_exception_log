@@ -1,0 +1,12 @@
+{
+  "name": "rails_exception_log-assets",
+  "private": true,
+  "description": "Builds app/assets/javascripts/rails_exception_log/application.js, the prebuilt bundle the gem ships (Turbo, Stimulus and the engine's controllers). Not published to npm.",
+  "scripts": {
+    "build": "bun build app/javascript/rails_exception_log/application.js --minify --format=iife --banner='/*! RailsExceptionLog bundle; includes Turbo and Stimulus (MIT) */' --outfile=app/assets/javascripts/rails_exception_log/application.js"
+  },
+  "devDependencies": {
+    "@hotwired/stimulus": "3.2.2",
+    "@hotwired/turbo-rails": "8.0.23"
+  }
+}
