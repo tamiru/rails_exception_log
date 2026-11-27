@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Upgrading:** run `bin/rails generate rails_exception_log:install` and
+`bin/rails db:migrate` to add the occurrence history table. Without it the
+dashboard works as before, minus the 7-day trend.
+
+### Added
+- **Quick filter chips** — Today, Critical, Unassigned and Muted above the
+  table, one click to switch on or off, keeping the other filters.
+- **Bulk actions** — A checkbox on each row (or `x` on the highlighted row)
+  and a bar to mute, unmute, set priority, assign or delete the ticked rows.
+  Each change gets the same audit comment as a single one.
+- **Occurrence history and 7-day trend** — Every capture is now recorded
+  with its time (kept 30 days), and each row shows a small bar chart of the
+  last 7 days, today's bar highlighted.
+- **Group by class** — A Rows / By class switch shows one row per exception
+  class with its total count, distinct errors, sources, trend and last
+  seen; clicking one lists that class's exceptions.
+
 ### Changed
 - **Separate list and detail pages** — Clicking a row (or pressing Enter on
   the selected row) opens the exception on its own page instead of a panel
@@ -27,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use tabular figures, and "Last seen" shows the full time on hover.
 
 ### Fixed
+- Assigning, muting, setting priority or commenting raised an error in apps
+  without a `current_user` method.
+- "Delete all", "Clear" and the retention cleanup left comments behind (or
+  failed on the comments foreign key); they now remove them, and history.
 - A white line under the table header in dark mode, and the message cell
   sitting lower than the rest of its row.
 - The Cause Chain, Breadcrumbs, System Health and Workflow tabs rendered

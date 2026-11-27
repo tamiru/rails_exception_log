@@ -272,6 +272,38 @@ class RailsExceptionLog::LoggedExceptionsControllerTest < ActionDispatch::Integr
     assert_select "td.rn-col-trend svg rect.rn-trend-bar", count: 7
   end
 
+  test "group by class shows one row per class with totals and links to that class" do
+    RailsExceptionLog::LoggedException.create!(exception_class: "RuntimeError", controller_name: "orders",
+                                               action_name: "index", occurrence_count: 3, fingerprint: "rt-2")
+    RailsExceptionLog::LoggedException.create!(exception_class: "KeyError", controller_name: "users",
+                                               action_name: "show", occurrence_count: 1, fingerprint: "ke-1")
+
+    get "/rails_exception_log/logged_exceptions", params: { group: "class" }
+
+    assert_select ".rn-view-toggle-option.is-active", text: "By class"
+    assert_select "table.rn-groups-table tbody tr", count: 2
+    assert_select "tr[data-url='/rails_exception_log/logged_exceptions?exception_names_filter=RuntimeError']" do
+      assert_select ".rn-occurrence-count", text: "15"
+      assert_select ".rn-group-stat", text: "2 distinct errors"
+      assert_select ".rn-group-stat", text: "2 sources"
+    end
+    assert_select "input[name='ids[]']", count: 0
+  end
+
+  test "group by class respects the filters and keeps them in its links" do
+    get "/rails_exception_log/logged_exceptions", params: { group: "class", q: { priority_eq: "low" } }
+    assert_select "table.rn-groups-table tbody tr", count: 0
+
+    get "/rails_exception_log/logged_exceptions", params: { group: "class", status_filter: "active" }
+    assert_select ".rn-view-toggle-option[href='/rails_exception_log/logged_exceptions?status_filter=active']",
+                  text: "Rows"
+  end
+
+  test "the class filter a group opens with is shown as a removable pill" do
+    get "/rails_exception_log/logged_exceptions", params: { exception_names_filter: "RuntimeError" }
+    assert_select ".rn-filter-pill", text: /Class:\s*RuntimeError/
+  end
+
   test "deleting from the detail page returns to the filtered list" do
     delete "/rails_exception_log/logged_exceptions/#{@exception.id}", params: { status_filter: "active" }
 

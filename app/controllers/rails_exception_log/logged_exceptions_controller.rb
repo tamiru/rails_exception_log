@@ -10,7 +10,7 @@ module RailsExceptionLog
     ].freeze
 
     helper_method :exception_feature?, :params_filters, :prev_exception, :next_exception,
-                  :page_size, :page_size_choices
+                  :page_size, :page_size_choices, :grouped_by_class?
 
     def index
       load_exception_index
@@ -102,7 +102,11 @@ module RailsExceptionLog
       load_stats if RailsExceptionLog.configuration.show_stats
       @pagy, @exceptions = rails_exception_log_pagy(@q.result(distinct: true), limit: page_size)
       @show_trends = Occurrence.available?
-      @trends = Occurrence.daily_counts(@exceptions.map(&:id))
+      if grouped_by_class?
+        load_class_groups
+      else
+        @trends = Occurrence.daily_counts(@exceptions.map(&:id))
+      end
     end
 
     def ransack_search
@@ -126,7 +130,8 @@ module RailsExceptionLog
         platform_filter: params[:platform_filter],
         controller_actions_filter: params[:controller_actions_filter],
         status_filter: params[:status_filter],
-        per_page: params[:per_page]
+        per_page: params[:per_page],
+        group: (params[:group] if grouped_by_class?)
       }.compact
     end
 
@@ -193,6 +198,40 @@ module RailsExceptionLog
         top_classes: LoggedException.group(:exception_class).limit(5).count,
         top_controllers: LoggedException.group(:controller_name).limit(5).count
       }
+    end
+
+    GROUP_LIMIT = 200
+    private_constant :GROUP_LIMIT
+    ClassGroup = Struct.new(:exception_class, :total, :errors, :sources, :last_seen, :trend) do
+      # Lets the list's own date helper format a group's last-seen time.
+      def created_at = last_seen
+    end
+
+    def grouped_by_class?
+      params[:group] == "class"
+    end
+
+    # One row per exception class across the filtered list: summed count,
+    # how many distinct errors (fingerprints) and sources it spans, and when
+    # it was last seen. Classes are few, so they are shown without paging.
+    def load_class_groups
+      scope = @q.result(distinct: false).reorder(nil)
+      totals = if exception_feature?(:occurrence_count)
+        scope.group(:exception_class).sum(Arel.sql("COALESCE(occurrence_count, 1)"))
+      else
+        scope.group(:exception_class).count
+      end
+      errors = scope.group(:exception_class).count
+      last_seen = scope.group(:exception_class).maximum(:created_at)
+      sources = scope.distinct.pluck(:exception_class, :controller_name, :action_name)
+                     .group_by(&:first).transform_values(&:size)
+      trends = Occurrence.daily_counts_by_class(scope)
+
+      groups = errors.keys.map do |klass|
+        ClassGroup.new(klass, totals[klass].to_i, errors[klass], sources[klass].to_i, last_seen[klass], trends[klass])
+      end
+      @class_groups = groups.sort_by { |group| group.last_seen || Time.zone.at(0) }.reverse.first(GROUP_LIMIT)
+      @class_group_total = groups.size
     end
 
     NavExceptionLink = Struct.new(:id, :exception_class)

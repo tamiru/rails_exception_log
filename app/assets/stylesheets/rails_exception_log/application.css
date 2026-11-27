@@ -2655,3 +2655,34 @@ body > div.min-h-full > div:last-child > main { flex: 1; overflow: visible; }
       ". trend count time";
   }
 }
+
+/* ─── View toggle: rows or one row per class ────────────────── */
+.rn-view-toggle {
+  display: inline-flex;
+  padding: 0.125rem;
+  border: 1px solid var(--rn-border);
+  border-radius: var(--rn-radius-sm);
+  background: var(--rn-surface);
+}
+.rn-view-toggle-option {
+  padding: 0.125rem 0.625rem;
+  border-radius: calc(var(--rn-radius-sm) - 0.125rem);
+  color: var(--rn-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rn-view-toggle-option:hover { color: var(--rn-primary); text-decoration: none; }
+.rn-view-toggle-option:focus-visible { outline: 2px solid var(--rn-primary); outline-offset: 1px; }
+.rn-view-toggle-option.is-active { background: var(--rn-primary-light); color: var(--rn-primary); font-weight: 600; }
+
+/* ─── Grouped by class ──────────────────────────────────────── */
+.rn-group-stat { color: var(--rn-text-secondary); font-size: 0.8125rem; }
+.rn-groups-table .rn-col-source { width: 7rem; }
+.rn-groups-note {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rn-border-light);
+  color: var(--rn-text-muted);
+  font-size: 0.75rem;
+}

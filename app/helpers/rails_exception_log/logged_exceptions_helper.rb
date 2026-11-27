@@ -149,6 +149,7 @@ module RailsExceptionLog
       end
 
       {
+        "exception_names_filter" => "Class",
         "controller_actions_filter" => "Source",
         "status_filter" => "Status",
         "query" => "Search"

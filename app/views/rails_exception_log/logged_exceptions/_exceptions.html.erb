@@ -40,7 +40,22 @@
           <% end %>
         </span>
 
+        <%# Rows, or one row per exception class %>
+        <div class="rn-view-toggle" role="group" aria-label="View">
+          <%= link_to "Rows",
+                      logged_exceptions_path(params_filters.except(:group)),
+                      class: "rn-view-toggle-option#{' is-active' unless grouped_by_class?}",
+                      aria: { current: (grouped_by_class? ? nil : "true") },
+                      data: { turbo_frame: "_top" } %>
+          <%= link_to "By class",
+                      logged_exceptions_path(params_filters.merge(group: "class")),
+                      class: "rn-view-toggle-option#{' is-active' if grouped_by_class?}",
+                      aria: { current: (grouped_by_class? ? "true" : nil) },
+                      data: { turbo_frame: "_top" } %>
+        </div>
+
         <%# Page size selector %>
+        <% unless grouped_by_class? %>
         <div class="rn-page-size" role="group" aria-label="Rows per page">
           <span class="rn-page-size-label">Per page</span>
           <% page_size_choices.each do |size| %>
@@ -51,6 +66,7 @@
               data: { turbo_frame: "exceptions" } %>
           <% end %>
         </div>
+        <% end %>
       </div>
 
       <div class="rn-exceptions-toolbar-actions">
@@ -69,6 +85,9 @@
       </div>
     </div>
 
+    <% if grouped_by_class? %>
+      <%= render "class_groups" %>
+    <% else %>
     <%# ─── Bulk Actions (shown once rows are ticked) ──────────── %>
     <%= form_with url: bulk_logged_exceptions_path,
                   id: "rn-bulk-form",
@@ -281,6 +300,7 @@
         </p>
         <div><%== rails_exception_log_pagy_nav(@pagy) %></div>
       </div>
+    <% end %>
     <% end %>
   <% end %>
 </div>

@@ -51,6 +51,25 @@ module RailsExceptionLog
         end
       end
 
+      # The same series summed per exception class, for the grouped view:
+      #   { "NoMethodError" => [0, 2, 0, 0, 1, 0, 7], ... }
+      def daily_counts_by_class(exception_scope, days: TREND_DAYS, now: Time.current)
+        return {} unless available?
+
+        first_day = now.utc.to_date - (days - 1)
+        exceptions = LoggedException.arel_table
+        rows = joins(:logged_exception)
+               .where(logged_exception_id: exception_scope.reorder(nil).select(:id))
+               .where(occurred_at: first_day.beginning_of_day.utc..)
+               .group(exceptions[:exception_class], Arel.sql("DATE(occurred_at)"))
+               .count
+
+        rows.each_with_object(Hash.new { |hash, key| hash[key] = Array.new(days, 0) }) do |((klass, day), count), series|
+          index = (day.to_date - first_day).to_i
+          series[klass][index] += count if index.between?(0, days - 1)
+        end
+      end
+
       def prune(before: RETENTION.ago)
         return 0 unless available?
 

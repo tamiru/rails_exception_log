@@ -34,6 +34,7 @@
     <%# Filter form %>
     <%= search_form_for @q, url: query_logged_exceptions_path, data: { turbo_frame: "exceptions" } do |f| %>
       <%= hidden_field_tag :per_page, params[:per_page] if params[:per_page].present? %>
+      <%= hidden_field_tag :group, "class" if grouped_by_class? %>
       <div class="rn-filters">
         <div class="rn-filter-group">
           <label>Exception Type</label>
